@@ -1,0 +1,18 @@
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Backend secrets & local data
+backend/.env
+backend/venv/
+backend/uploads/
+backend/chroma_data/
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/

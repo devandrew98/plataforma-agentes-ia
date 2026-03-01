@@ -1,0 +1,29 @@
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Secrets e ambiente
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.exemplo
+
+# venv
+**/venv/
+
+# Dados locais
+**/uploads/
+**/chroma_data/
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Frontend (depois)
+**/node_modules/
+**/dist/
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+.vscode/

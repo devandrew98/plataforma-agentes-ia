@@ -1,0 +1,3 @@
+neste projeto estamos criando uma plataforma de AGENTES DE IA, onde iremos em poucos minutos criar um agente de IA utilizando as IAS mais atuais do mundo para te ajudar a resolver e até mesmo fazer o trabalho de horas/dias/meses, sem a necessidade de você ficar 24horas ao laod dela, a intenção inicial é criar um agente de IA e este agente fazer 1 venda de forma 100% automatica!!
+
+O Projeto ainda está em fase de desenvolvimento, ainda falta muita lógica e estudos porém estamos extremamente ansiosos para iniciar!!!
