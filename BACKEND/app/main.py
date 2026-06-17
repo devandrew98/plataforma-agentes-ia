@@ -31,9 +31,15 @@ _env_origins = [
 ]
 allowed_origins = _env_origins or _default_origins
 
+# Além das origens exatas, liberamos por regex qualquer subdomínio .vercel.app
+# (a Vercel gera várias URLs por projeto: produção, preview e por deploy).
+# Pode customizar com FRONTEND_ORIGIN_REGEX no .env.
+_origin_regex = os.getenv("FRONTEND_ORIGIN_REGEX") or r"https://.*\.vercel\.app"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
