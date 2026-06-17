@@ -19,9 +19,14 @@
 **/*.sqlite
 **/*.sqlite3
 
-# Frontend (depois)
+# Frontend
 **/node_modules/
 **/dist/
+**/.next/
+**/out/
+
+# Logs
+**/*.log
 
 # Editor/OS
 .DS_Store

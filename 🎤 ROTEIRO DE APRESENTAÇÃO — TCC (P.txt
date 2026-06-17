@@ -1,0 +1,197 @@
+🎤 ROTEIRO DE APRESENTAÇÃO — TCC (PLATAFORMA DE AGENTES IA)
+⏱️ Duração ideal: 10 a 15 minutos
+🟢 1. ABERTURA (1 min)
+
+👉 Aqui é só posicionar o tema com confiança.
+
+Fala algo nessa linha:
+
+“Boa noite, meu nome é André, e vou apresentar meu trabalho sobre o desenvolvimento de uma plataforma de agentes de Inteligência Artificial, que permite criar agentes personalizados com memória e base de conhecimento própria.”
+
+👉 Não enrola. Vai direto.
+
+🟢 2. PROBLEMA (1–2 min)
+
+👉 Mostra que seu projeto resolve algo real.
+
+“Hoje, modelos de IA como ChatGPT são muito poderosos, mas possuem limitações importantes:
+
+Não possuem conhecimento específico do usuário
+Podem inventar respostas (alucinação)
+Não mantêm contexto persistente entre sessões”
+
+👉 Fecha com impacto:
+
+“Diante disso, surgiu a ideia de criar uma plataforma que resolvesse esses problemas.”
+
+🟢 3. OBJETIVO (1 min)
+
+“O objetivo do projeto foi desenvolver uma plataforma onde o usuário pode:
+
+Criar agentes personalizados
+Utilizar memória de conversa
+Integrar documentos como base de conhecimento (RAG)
+Interagir com esses agentes de forma inteligente”
+🟢 4. VISÃO GERAL DO SISTEMA (1–2 min)
+
+👉 Mostra o sistema rodando (essa tela que você fez)
+
+Fala:
+
+“A plataforma é composta por duas partes principais:
+
+Frontend, responsável pela interface
+Backend, responsável pela lógica e integração com IA”
+
+👉 Aponta:
+
+Dashboard
+Menu
+Agentes
+🟢 5. ARQUITETURA (2 min)
+
+👉 Aqui você ganha ponto técnico
+
+“A arquitetura do sistema é baseada em separação entre frontend e backend, utilizando API REST.”
+
+Fala rápido das tecnologias:
+
+Frontend: Next.js + React
+Backend: FastAPI
+Banco: SQLAlchemy + SQLite
+IA: integração com LLM
+
+👉 Fecha com:
+
+“Isso permite escalabilidade e organização do sistema.”
+
+🟢 6. O QUE É UM AGENTE (1–2 min)
+
+👉 Mostra isso na prática
+
+“Um agente é uma instância de IA personalizada, onde definimos:
+
+Nome
+Prompt base
+Modelo de linguagem”
+
+Exemplo:
+
+“Por exemplo, posso criar um agente que responde como advogado, apenas mudando o prompt.”
+
+🟢 7. CHAT + FLUXO (2 min) ⭐ (IMPORTANTE)
+
+👉 Aqui você mostra que entende o sistema
+
+Fala devagar:
+
+“Quando o usuário envia uma mensagem, o sistema realiza um fluxo interno:
+
+Recupera o agente
+Busca memória da conversa
+Busca contexto nos documentos (RAG)
+Monta o prompt
+Envia para o modelo de IA
+Retorna a resposta”
+
+👉 Se explicar isso bem, você já se destaca.
+
+🟢 8. RAG (2 min) ⭐⭐⭐ (SEU DIFERENCIAL)
+
+👉 Aqui você brilha
+
+“Um dos principais diferenciais do sistema é o uso de RAG — Retrieval-Augmented Generation.”
+
+Explica simples:
+
+“Isso permite que a IA responda com base em documentos enviados pelo usuário.”
+
+Fluxo:
+
+Upload de PDF
+Extração do texto
+Divisão em partes
+Busca por similaridade
+Envio como contexto para IA
+
+👉 Frase forte:
+
+“Ou seja, a IA deixa de ‘inventar’ e passa a responder com base em dados reais.”
+
+🟢 9. MEMÓRIA (1 min)
+
+“O sistema também implementa memória por conversa, armazenando histórico no banco de dados.”
+
+👉 Resultado:
+
+“Isso permite respostas mais contextuais e naturais.”
+
+🟢 10. DEMONSTRAÇÃO (2–3 min)
+
+👉 Aqui você mostra:
+
+Criar agente
+Fazer pergunta
+(Se possível) usar RAG
+
+👉 Dica:
+Não inventa moda aqui. Testa antes e faz algo simples.
+
+🟢 11. RESULTADOS (1 min)
+
+“O sistema conseguiu integrar com sucesso:
+
+Criação de agentes
+Chat inteligente
+Memória persistente
+Base de conhecimento com RAG”
+🟢 12. LIMITAÇÕES (30s – 1 min)
+
+👉 Isso passa maturidade
+
+“Algumas limitações:
+
+Login ainda não implementado com segurança
+Interface pode ser melhorada
+Dependência de API externa de IA”
+🟢 13. MELHORIAS FUTURAS (1 min)
+
+“Como melhorias futuras:
+
+Autenticação com JWT
+Multiusuário
+Deploy em nuvem
+Suporte a mais formatos de arquivos”
+🟢 14. FINALIZAÇÃO
+
+“Esse projeto demonstra como tecnologias modernas de IA podem ser aplicadas de forma prática para criar sistemas inteligentes personalizados.”
+
+“Obrigado.”
+
+⚠️ AGORA O MAIS IMPORTANTE
+
+Vou ser direto contigo:
+
+👉 Não decora texto.
+
+Decora isso:
+
+FLUXO DO SISTEMA
+
+mensagem → memória + rag → LLM → resposta
+
+Se você explicar isso com segurança, você passa tranquilo.
+
+🎯 DICAS FINAIS (ESSAS VALEM OURO)
+Fala devagar
+Não corre
+Não tenta parecer “robô”
+Se travar, explica com suas palavras
+Mostra que você ENTENDEU, não que decorou
+
+Se quiser, eu posso te preparar também:
+
+👉 
+perguntas que a banca provavelmente vai te fazer (e como responder)
+
+Isso pode literalmente salvar sua apresentação.

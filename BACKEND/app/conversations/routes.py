@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import schemas, crud
+from app.auth import get_current_active_user
 from app.llm import generate, LLMError
 from app.rag.service import retrieve_context_with_sources
 
@@ -17,9 +18,10 @@ def create_conversation(
     agent_id: int,
     payload: schemas.ConversationCreate,
     db: Session = Depends(get_db),
+    current_user: schemas.UserOut = Depends(get_current_active_user),
 ):
     agent = crud.get_agent(db, agent_id)
-    if not agent:
+    if not agent or agent.owner_id != current_user.id:
         raise HTTPException(status_code=404, detail="Agente não encontrado.")
 
     return crud.create_conversation(db, agent_id=agent.id, title=payload.title)
@@ -30,9 +32,10 @@ def list_conversations(
     agent_id: int,
     limit: int = 50,
     db: Session = Depends(get_db),
+    current_user: schemas.UserOut = Depends(get_current_active_user),
 ):
     agent = crud.get_agent(db, agent_id)
-    if not agent:
+    if not agent or agent.owner_id != current_user.id:
         raise HTTPException(status_code=404, detail="Agente não encontrado.")
 
     return crud.list_conversations(db, agent_id=agent.id, limit=limit)
@@ -58,9 +61,10 @@ def chat(
     agent_id: int,
     payload: schemas.ChatRequest,
     db: Session = Depends(get_db),
+    current_user: schemas.UserOut = Depends(get_current_active_user),
 ):
     agent = crud.get_agent(db, agent_id)
-    if not agent:
+    if not agent or agent.owner_id != current_user.id:
         raise HTTPException(status_code=404, detail="Agente não encontrado.")
 
     # garantir conversation_id
@@ -120,7 +124,12 @@ def chat(
 
     # chama LLM e salva memória
     try:
-        answer = generate(agent.provider, agent.model, messages)
+        answer = generate(
+            agent.provider,
+            agent.model,
+            messages,
+            api_key=getattr(current_user, "openai_api_key", None),
+        )
 
         crud.add_message(db, agent.id, conversation_id, "user", payload.message)
         crud.add_message(db, agent.id, conversation_id, "assistant", answer)

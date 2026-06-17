@@ -1,17 +1,81 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import models, schemas
 
 
 # =========================================================
-# AGENTS
+# USERS
 # =========================================================
 
-def get_agent_by_name(db: Session, name: str):
-    return db.query(models.Agent).filter(models.Agent.name == name).first()
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.email == email).first()
 
 
-def create_agent(db: Session, payload: schemas.AgentCreate):
+def create_user(
+    db: Session,
+    email: str,
+    hashed_password: str,
+    provider: str = "local",
+    full_name: str | None = None,
+):
+    user = models.User(
+        email=email,
+        hashed_password=hashed_password,
+        provider=provider,
+        full_name=full_name,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def get_or_create_oauth_user(
+    db: Session,
+    email: str,
+    name: str | None,
+    provider: str,
+    provider_user_id: str | None = None,
+):
+    """Localiza o usuário pelo e-mail ou cria um novo vindo de login social."""
+    email = (email or "").strip().lower()
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user:
+        # Completa dados que ainda não existem (ex.: nome) sem sobrescrever senha local.
+        changed = False
+        if name and not user.full_name:
+            user.full_name = name
+            changed = True
+        if provider_user_id and not user.provider_user_id:
+            user.provider_user_id = provider_user_id
+            changed = True
+        if changed:
+            db.commit()
+            db.refresh(user)
+        return user
+
+    user = models.User(
+        email=email,
+        full_name=name,
+        hashed_password=None,  # usuário social não tem senha local
+        provider=provider,
+        provider_user_id=provider_user_id,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def get_agent_by_name(db: Session, name: str, owner_id: int):
+    return db.query(models.Agent).filter(
+        models.Agent.name == name,
+        models.Agent.owner_id == owner_id
+    ).first()
+
+
+def create_agent(db: Session, payload: schemas.AgentCreate, owner_id: int):
     agent = models.Agent(
         name=payload.name,
         description=payload.description or "",
@@ -20,15 +84,20 @@ def create_agent(db: Session, payload: schemas.AgentCreate):
         system_prompt=payload.system_prompt,
         status=payload.status,
         flow=payload.flow or {},
+        owner_id=owner_id,
     )
     db.add(agent)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ValueError("Já existe um agente com esse nome.")
     db.refresh(agent)
     return agent
 
 
-def list_agents(db: Session):
-    return db.query(models.Agent).order_by(models.Agent.id.desc()).all()
+def list_agents(db: Session, user_id: int):
+    return db.query(models.Agent).filter(models.Agent.owner_id == user_id).order_by(models.Agent.id.desc()).all()
 
 
 def get_agent(db: Session, agent_id: int):
@@ -45,15 +114,11 @@ def update_agent(db: Session, agent, payload: schemas.AgentUpdate):
     db.refresh(agent)
     return agent
 
-
 def delete_agent(db: Session, agent):
     db.delete(agent)
     db.commit()
 
 
-# =========================================================
-# CONVERSATIONS
-# =========================================================
 
 def create_conversation(db: Session, agent_id: int, title: str | None = None):
     conversation = models.Conversation(
@@ -153,14 +218,17 @@ def clear_messages(
 # KB (básico)
 # =========================================================
 
-def list_kbs(db: Session):
-    return db.query(models.KnowledgeBase).order_by(models.KnowledgeBase.id.desc()).all()
+def list_kbs(db: Session, user_id: int):
+    return db.query(models.KnowledgeBase).filter(
+        models.KnowledgeBase.owner_id == user_id
+    ).order_by(models.KnowledgeBase.id.desc()).all()
 
 
-def create_kb(db: Session, payload: schemas.KBCreate):
+def create_kb(db: Session, payload: schemas.KBCreate, owner_id: int):
     kb = models.KnowledgeBase(
         name=payload.name,
         description=payload.description or "",
+        owner_id=owner_id,
     )
     db.add(kb)
     db.commit()

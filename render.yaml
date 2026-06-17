@@ -1,0 +1,45 @@
+# Blueprint do Render para o backend do ARgent.ai (FastAPI).
+# Em render.com → New → Blueprint → conecte o repositório.
+# Os segredos (OPENAI_API_KEY, etc.) são preenchidos no painel do Render.
+
+services:
+  - type: web
+    name: argent-ai-backend
+    runtime: python
+    plan: free
+    rootDir: BACKEND
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # Gerado automaticamente pelo Render (não precisa preencher).
+      - key: JWT_SECRET
+        generateValue: true
+      # Preencha estes no painel do Render (sync:false = secreto):
+      - key: OPENAI_API_KEY
+        sync: false
+      # URL pública do frontend na Vercel (ex.: https://argent-ai.vercel.app)
+      - key: FRONTEND_URL
+        sync: false
+      # Mesma URL acima — libera o CORS para o frontend.
+      - key: FRONTEND_ORIGINS
+        sync: false
+      # URL pública deste backend no Render (ex.: https://argent-ai-backend.onrender.com)
+      # Usada no callback do login social.
+      - key: OAUTH_BACKEND_URL
+        sync: false
+      # Opcionais (login social / pagamento) — só se for usar:
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: FACEBOOK_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_CLIENT_SECRET
+        sync: false
+      - key: MERCADOPAGO_ACCESS_TOKEN
+        sync: false

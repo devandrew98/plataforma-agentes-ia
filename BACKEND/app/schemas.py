@@ -59,6 +59,54 @@ class KBOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserCreate(BaseModel):
+    email: str
+    password: Optional[str] = None  # optional for OAuth users
+    name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+    name: Optional[str] = None
+    company: Optional[str] = None
+    phone: Optional[str] = None
+    provider: str
+    has_openai_key: bool = False
+    is_admin: bool = False
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    company: Optional[str] = None
+    phone: Optional[str] = None
+
+
+class ApiKeyUpdate(BaseModel):
+    provider: str = "openai"
+    api_key: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class AuthResponse(BaseModel):
+    """Resposta padrão de autenticação: token + dados do usuário."""
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
 class KBDocumentCreate(BaseModel):
     kb_id: int
     filename: str

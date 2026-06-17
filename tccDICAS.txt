@@ -1,0 +1,58 @@
+1) Caminho que você precisa seguir (por etapas)
+Etapa A — Núcleo da plataforma (MVP)
+
+Objetivo: criar agentes por prompt e conseguir conversar com eles via API.
+
+FastAPI (rotas)
+
+Banco relacional (SQLite/Postgres) guardando:
+
+agentes (nome, descrição, system_prompt, modelo, provedor)
+
+histórico de conversas (opcional no MVP)
+
+Serviço “LLM Client” (uma camada que chama o provedor)
+
+✅ Resultado: você já tem um “backend de plataforma de agentes”.
+
+Etapa B — Multi-provedores (OpenAI/Claude/Gemini…)
+
+Objetivo: trocar o “motor” do agente sem mudar suas rotas.
+
+Interface única: generate(messages, model, temperature)
+
+Implementações por provedor
+
+Chave via .env
+
+✅ Resultado: seu TCC fica forte porque mostra abstração e escalabilidade.
+
+Etapa C — RAG/KB (a caixa “RAG KB” do seu quadro)
+
+Objetivo: agente responder com base em documentos (PDF, DOCX, site, texto).
+
+Pipeline de ingestão:
+
+Upload do arquivo
+
+Chunking
+
+Embeddings
+
+Salvar num Vector DB (Chroma/FAISS)
+
+No chat: retrieve -> montar contexto -> chamar LLM
+
+✅ Resultado: “agentes por área” (financeiro, vendas, saúde) com base em conhecimento próprio.
+
+Etapa D — Tools (Web, WhatsApp, planilhas, etc.)
+
+Objetivo: agente executar ações.
+
+Catálogo de tools por agente
+
+“Tool router” (decide qual tool pode ser usada)
+
+Logs e limites
+
+✅ Resultado: vira “plataforma de automação inteligente”.
