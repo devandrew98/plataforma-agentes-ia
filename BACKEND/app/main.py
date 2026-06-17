@@ -29,7 +29,8 @@ _default_origins = [
 _env_origins = [
     o.strip() for o in os.getenv("FRONTEND_ORIGINS", "").split(",") if o.strip()
 ]
-allowed_origins = _env_origins or _default_origins
+# Sempre incluímos os defaults (localhost) + os do .env, sem duplicar.
+allowed_origins = list(dict.fromkeys(_default_origins + _env_origins))
 
 # Além das origens exatas, liberamos por regex qualquer subdomínio .vercel.app
 # (a Vercel gera várias URLs por projeto: produção, preview e por deploy).
