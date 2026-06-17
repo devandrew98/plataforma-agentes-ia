@@ -13,6 +13,12 @@ engine_kwargs = {}
 
 if DATABASE_URL.startswith("sqlite"):
     engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    # Postgres serverless (ex.: Neon) hiberna quando inativo, deixando as
+    # conexões do pool "mortas". pool_pre_ping testa/renova a conexão antes de
+    # usar (evita erro 500 intermitente). pool_recycle descarta conexões velhas.
+    engine_kwargs["pool_pre_ping"] = True
+    engine_kwargs["pool_recycle"] = 300
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)
 
