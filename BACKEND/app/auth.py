@@ -41,15 +41,18 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 # ---------------------------------------------------------------------------
 
 def get_password_hash(password: str) -> str:
-    pwd_bytes = password.encode("utf-8")
-    salt = bcrypt.gensalt()
+    # rounds=8 deixa a criptografia ~16x mais rápida que o padrão (12).
+    # Essencial em servidores fracos (ex.: plano grátis do Render), onde o
+    # bcrypt padrão pode travar o cadastro. Hashes antigos (12) continuam válidos.
+    pwd_bytes = password.encode("utf-8")[:72]  # bcrypt limita a 72 bytes
+    salt = bcrypt.gensalt(rounds=8)
     hashed = bcrypt.hashpw(pwd_bytes, salt)
     return hashed.decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     try:
-        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+        return bcrypt.checkpw(plain.encode("utf-8")[:72], hashed.encode("utf-8"))
     except Exception:
         return False
 
