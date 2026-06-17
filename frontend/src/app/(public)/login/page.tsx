@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getSession, login, register, oauthLoginUrl, OAuthProvider } from "@/src/lib/services/auth";
+import { getSession, login, register, oauthLoginUrl, OAuthProvider, wakeBackend } from "@/src/lib/services/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Zap } from "lucide-react";
 
@@ -75,6 +75,8 @@ export default function LoginPage() {
       router.replace("/dashboard");
       return;
     }
+    // Acorda o backend (plano grátis hiberna) enquanto o usuário digita.
+    wakeBackend();
     // Mensagem de erro vinda do fluxo OAuth (?error=...)
     const params = new URLSearchParams(window.location.search);
     const err = params.get("error");

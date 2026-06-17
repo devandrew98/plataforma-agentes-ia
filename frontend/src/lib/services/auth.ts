@@ -80,21 +80,46 @@ function friendlyError(detail: string | undefined, status: number): string {
   return "Não foi possível conectar ao servidor. Verifique se o backend está rodando.";
 }
 
+/**
+ * Acorda o backend (no plano grátis ele hiberna após ~15 min).
+ * Fire-and-forget — chamada ao abrir a tela de login.
+ */
+export function wakeBackend(): void {
+  try {
+    fetch(`${API_URL}/health`, { cache: "no-store" }).catch(() => {});
+  } catch {
+    /* ignore */
+  }
+}
+
 async function postAuth(path: string, body: unknown): Promise<Session> {
+  // O servidor grátis pode levar ~50s para "acordar"; damos até 90s e, se
+  // estourar, mostramos uma mensagem clara em vez de carregar para sempre.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90000);
+
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
-  } catch {
+  } catch (e: any) {
+    clearTimeout(timer);
+    if (e?.name === "AbortError") {
+      throw new Error(
+        "O servidor demorou demais para responder (ele estava iniciando). Aguarde alguns segundos e tente novamente."
+      );
+    }
     throw new Error(
       "Não foi possível conectar ao servidor. Verifique se o backend está rodando em " +
         API_URL +
         "."
     );
   }
+  clearTimeout(timer);
 
   if (!res.ok) {
     let detail: string | undefined;
