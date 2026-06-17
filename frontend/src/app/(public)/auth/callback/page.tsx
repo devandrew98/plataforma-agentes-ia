@@ -20,8 +20,7 @@ export default function OAuthCallbackPage() {
 
     completeOAuthLogin(token)
       .then(() => {
-        router.replace("/dashboard");
-        router.refresh();
+        window.location.assign("/dashboard");
       })
       .catch((e: any) => {
         setError(e?.message || "Erro ao concluir o login.");

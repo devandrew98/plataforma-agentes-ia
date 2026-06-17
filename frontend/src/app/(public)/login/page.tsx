@@ -91,8 +91,9 @@ export default function LoginPage() {
       : name.trim().length >= 2 && email.trim().length > 3 && password.length >= 4;
 
   function goApp() {
-    router.replace("/dashboard");
-    router.refresh();
+    // Navegação "dura" (recarrega a página) — mais robusta em produção que
+    // router.replace, garantindo que o RequireAuth leia a sessão recém-gravada.
+    window.location.assign("/dashboard");
   }
 
   async function handleSubmit(e?: React.FormEvent) {
