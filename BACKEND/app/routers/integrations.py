@@ -280,8 +280,7 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
                 timeout=20,
             )
             send_status = resp.status_code
-            if resp.status_code != 200:
-                send_info = resp.text[:400]
+            send_info = resp.text[:500]
         except Exception as e:
             send_info = f"excecao: {e}"
 
