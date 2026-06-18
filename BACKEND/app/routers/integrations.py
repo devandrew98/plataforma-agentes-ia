@@ -32,6 +32,8 @@ GRAPH_VERSION = os.getenv("WHATSAPP_API_VERSION", "v21.0")
 _last_wa_status: dict = {}
 # Última mensagem recebida + resultado do envio (raio-x do fluxo real).
 _last_inbound: dict = {}
+# Último POST cru recebido no webhook (qualquer um, mesmo sem match) — diagnóstico.
+_last_raw_post: dict = {}
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +223,10 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
 
     body = await request.json()
 
+    from datetime import datetime as _dt0
+    _last_raw_post.clear()
+    _last_raw_post.update({"at": _dt0.utcnow().isoformat(), "raw": str(body)[:800]})
+
     try:
         entry = (body.get("entry") or [])[0]
         change = (entry.get("changes") or [])[0]
@@ -328,6 +334,7 @@ def whatsapp_last_status():
 def whatsapp_debug():
     """Raio-x: última mensagem recebida + resultado do envio + último status."""
     return {
-        "last_inbound": _last_inbound or "nenhuma mensagem recebida ainda",
+        "last_raw_post": _last_raw_post or "NENHUM post recebido do Meta ainda",
+        "last_inbound": _last_inbound or "nenhuma mensagem processada ainda",
         "last_status": _last_wa_status or "nenhum status recebido ainda",
     }
