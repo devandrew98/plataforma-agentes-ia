@@ -25,6 +25,9 @@ router = APIRouter(prefix="/integrations", tags=["Integrations"])
 
 ADMIN_EMAIL = (os.getenv("ADMIN_EMAIL") or "andre.rodrigues1022@gmail.com").strip().lower()
 
+# Versão da Graph API do WhatsApp (configurável). O Meta deprecia versões antigas.
+GRAPH_VERSION = os.getenv("WHATSAPP_API_VERSION", "v21.0")
+
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -259,19 +262,27 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
 
     # enviar resposta via Graph API
     access_token = (target.config or {}).get("access_token")
-    try:
-        requests.post(
-            f"https://graph.facebook.com/v18.0/{phone_number_id}/messages",
-            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
-            json={
-                "messaging_product": "whatsapp",
-                "to": from_number,
-                "type": "text",
-                "text": {"body": answer},
-            },
-            timeout=20,
-        )
-    except Exception:
-        pass
+    send_status = None
+    send_info = None
+    if not access_token:
+        send_info = "sem access_token salvo"
+    else:
+        try:
+            resp = requests.post(
+                f"https://graph.facebook.com/{GRAPH_VERSION}/{phone_number_id}/messages",
+                headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+                json={
+                    "messaging_product": "whatsapp",
+                    "to": from_number,
+                    "type": "text",
+                    "text": {"body": answer},
+                },
+                timeout=20,
+            )
+            send_status = resp.status_code
+            if resp.status_code != 200:
+                send_info = resp.text[:400]
+        except Exception as e:
+            send_info = f"excecao: {e}"
 
-    return {"status": "ok"}
+    return {"status": "ok", "send_status": send_status, "send_info": send_info}
