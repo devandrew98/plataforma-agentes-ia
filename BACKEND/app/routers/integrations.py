@@ -30,6 +30,8 @@ GRAPH_VERSION = os.getenv("WHATSAPP_API_VERSION", "v21.0")
 
 # Último status de entrega recebido (diagnóstico): sent/delivered/failed + erros.
 _last_wa_status: dict = {}
+# Última mensagem recebida + resultado do envio (raio-x do fluxo real).
+_last_inbound: dict = {}
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +303,18 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
         except Exception as e:
             send_info = f"excecao: {e}"
 
+    from datetime import datetime as _dt
+    _last_inbound.clear()
+    _last_inbound.update({
+        "from": from_number,
+        "text": text,
+        "phone_number_id": phone_number_id,
+        "agent_id": agent.id,
+        "answer_preview": (answer or "")[:120],
+        "send_status": send_status,
+        "send_info": send_info,
+        "at": _dt.utcnow().isoformat(),
+    })
     return {"status": "ok", "send_status": send_status, "send_info": send_info}
 
 
@@ -308,3 +322,12 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
 def whatsapp_last_status():
     """Debug: último status de entrega (sent/delivered/failed) recebido do Meta."""
     return _last_wa_status or {"status": "nenhum status recebido ainda"}
+
+
+@router.get("/whatsapp/debug")
+def whatsapp_debug():
+    """Raio-x: última mensagem recebida + resultado do envio + último status."""
+    return {
+        "last_inbound": _last_inbound or "nenhuma mensagem recebida ainda",
+        "last_status": _last_wa_status or "nenhum status recebido ainda",
+    }
