@@ -338,3 +338,29 @@ def whatsapp_debug():
         "last_inbound": _last_inbound or "nenhuma mensagem processada ainda",
         "last_status": _last_wa_status or "nenhum status recebido ainda",
     }
+
+
+@router.post("/whatsapp/subscribe-waba")
+def subscribe_waba(waba_id: str, db: Session = Depends(get_db)):
+    """Inscreve o app na WABA (faz o Meta repassar as mensagens reais). Usa o
+    access_token já salvo na integração. Endpoint utilitário/diagnóstico."""
+    integ = (
+        db.query(models.Integration)
+        .filter(models.Integration.channel == "whatsapp")
+        .order_by(models.Integration.id.desc())
+        .first()
+    )
+    if not integ:
+        return {"error": "nenhuma integração whatsapp salva"}
+    token = (integ.config or {}).get("access_token")
+    if not token:
+        return {"error": "integração sem access_token"}
+    try:
+        resp = requests.post(
+            f"https://graph.facebook.com/{GRAPH_VERSION}/{waba_id}/subscribed_apps",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=20,
+        )
+        return {"status_code": resp.status_code, "body": resp.text[:500]}
+    except Exception as e:
+        return {"error": str(e)}
