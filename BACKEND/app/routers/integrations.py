@@ -28,6 +28,9 @@ ADMIN_EMAIL = (os.getenv("ADMIN_EMAIL") or "andre.rodrigues1022@gmail.com").stri
 # Versão da Graph API do WhatsApp (configurável). O Meta deprecia versões antigas.
 GRAPH_VERSION = os.getenv("WHATSAPP_API_VERSION", "v21.0")
 
+# Último status de entrega recebido (diagnóstico): sent/delivered/failed + erros.
+_last_wa_status: dict = {}
+
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -220,6 +223,20 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
         entry = (body.get("entry") or [])[0]
         change = (entry.get("changes") or [])[0]
         value = change.get("value") or {}
+
+        # Captura status de entrega (sent/delivered/failed) para diagnóstico.
+        statuses = value.get("statuses") or []
+        if statuses:
+            s = statuses[0]
+            _last_wa_status.clear()
+            _last_wa_status.update({
+                "status": s.get("status"),
+                "recipient_id": s.get("recipient_id"),
+                "errors": s.get("errors"),
+                "timestamp": s.get("timestamp"),
+            })
+            return {"status": "status_logged"}
+
         phone_number_id = (value.get("metadata") or {}).get("phone_number_id")
         messages = value.get("messages") or []
         if not messages or not phone_number_id:
@@ -285,3 +302,9 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
             send_info = f"excecao: {e}"
 
     return {"status": "ok", "send_status": send_status, "send_info": send_info}
+
+
+@router.get("/whatsapp/last-status")
+def whatsapp_last_status():
+    """Debug: último status de entrega (sent/delivered/failed) recebido do Meta."""
+    return _last_wa_status or {"status": "nenhum status recebido ainda"}
