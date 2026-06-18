@@ -257,10 +257,12 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
     except Exception:
         return {"status": "bad_payload"}
 
-    # localizar integração pelo phone_number_id
+    # localizar integração pelo phone_number_id — a MAIS RECENTE primeiro
+    # (evita pegar uma integração duplicada antiga com token vencido).
     integ = (
         db.query(models.Integration)
         .filter(models.Integration.channel == "whatsapp")
+        .order_by(models.Integration.id.desc())
         .all()
     )
     target = next((i for i in integ if (i.config or {}).get("phone_number_id") == phone_number_id), None)
