@@ -28,13 +28,6 @@ ADMIN_EMAIL = (os.getenv("ADMIN_EMAIL") or "andre.rodrigues1022@gmail.com").stri
 # Versão da Graph API do WhatsApp (configurável). O Meta deprecia versões antigas.
 GRAPH_VERSION = os.getenv("WHATSAPP_API_VERSION", "v21.0")
 
-# Último status de entrega recebido (diagnóstico): sent/delivered/failed + erros.
-_last_wa_status: dict = {}
-# Última mensagem recebida + resultado do envio (raio-x do fluxo real).
-_last_inbound: dict = {}
-# Último POST cru recebido no webhook (qualquer um, mesmo sem match) — diagnóstico.
-_last_raw_post: dict = {}
-
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -223,28 +216,13 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
 
     body = await request.json()
 
-    from datetime import datetime as _dt0
-    _last_raw_post.clear()
-    _last_raw_post.update({"at": _dt0.utcnow().isoformat(), "raw": str(body)[:800]})
-
     try:
         entry = (body.get("entry") or [])[0]
         change = (entry.get("changes") or [])[0]
         value = change.get("value") or {}
-
-        # Captura status de entrega (sent/delivered/failed) para diagnóstico.
-        statuses = value.get("statuses") or []
-        if statuses:
-            s = statuses[0]
-            _last_wa_status.clear()
-            _last_wa_status.update({
-                "status": s.get("status"),
-                "recipient_id": s.get("recipient_id"),
-                "errors": s.get("errors"),
-                "timestamp": s.get("timestamp"),
-            })
-            return {"status": "status_logged"}
-
+        # Status de entrega (sent/delivered/failed) não precisam de resposta.
+        if value.get("statuses"):
+            return {"status": "status_received"}
         phone_number_id = (value.get("metadata") or {}).get("phone_number_id")
         messages = value.get("messages") or []
         if not messages or not phone_number_id:
@@ -289,13 +267,9 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
 
     # enviar resposta via Graph API
     access_token = (target.config or {}).get("access_token")
-    send_status = None
-    send_info = None
-    if not access_token:
-        send_info = "sem access_token salvo"
-    else:
+    if access_token:
         try:
-            resp = requests.post(
+            requests.post(
                 f"https://graph.facebook.com/{GRAPH_VERSION}/{phone_number_id}/messages",
                 headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
                 json={
@@ -306,63 +280,7 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
                 },
                 timeout=20,
             )
-            send_status = resp.status_code
-            send_info = resp.text[:500]
-        except Exception as e:
-            send_info = f"excecao: {e}"
+        except Exception:
+            pass
 
-    from datetime import datetime as _dt
-    _last_inbound.clear()
-    _last_inbound.update({
-        "from": from_number,
-        "text": text,
-        "phone_number_id": phone_number_id,
-        "agent_id": agent.id,
-        "answer_preview": (answer or "")[:120],
-        "send_status": send_status,
-        "send_info": send_info,
-        "at": _dt.utcnow().isoformat(),
-    })
-    return {"status": "ok", "send_status": send_status, "send_info": send_info}
-
-
-@router.get("/whatsapp/last-status")
-def whatsapp_last_status():
-    """Debug: último status de entrega (sent/delivered/failed) recebido do Meta."""
-    return _last_wa_status or {"status": "nenhum status recebido ainda"}
-
-
-@router.get("/whatsapp/debug")
-def whatsapp_debug():
-    """Raio-x: última mensagem recebida + resultado do envio + último status."""
-    return {
-        "last_raw_post": _last_raw_post or "NENHUM post recebido do Meta ainda",
-        "last_inbound": _last_inbound or "nenhuma mensagem processada ainda",
-        "last_status": _last_wa_status or "nenhum status recebido ainda",
-    }
-
-
-@router.post("/whatsapp/subscribe-waba")
-def subscribe_waba(waba_id: str, db: Session = Depends(get_db)):
-    """Inscreve o app na WABA (faz o Meta repassar as mensagens reais). Usa o
-    access_token já salvo na integração. Endpoint utilitário/diagnóstico."""
-    integ = (
-        db.query(models.Integration)
-        .filter(models.Integration.channel == "whatsapp")
-        .order_by(models.Integration.id.desc())
-        .first()
-    )
-    if not integ:
-        return {"error": "nenhuma integração whatsapp salva"}
-    token = (integ.config or {}).get("access_token")
-    if not token:
-        return {"error": "integração sem access_token"}
-    try:
-        resp = requests.post(
-            f"https://graph.facebook.com/{GRAPH_VERSION}/{waba_id}/subscribed_apps",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=20,
-        )
-        return {"status_code": resp.status_code, "body": resp.text[:500]}
-    except Exception as e:
-        return {"error": str(e)}
+    return {"status": "ok"}
