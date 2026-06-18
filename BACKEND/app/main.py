@@ -11,6 +11,7 @@ from .routers.billing import router as billing_router
 from .routers.integrations import router as integrations_router
 from .routers.admin import router as admin_router
 from .routers.metrics import router as metrics_router
+from .routers.public import router as public_router
 from .conversations.routes import router as conversations_router
 
 Base.metadata.create_all(bind=engine)
@@ -54,6 +55,7 @@ app.include_router(billing_router)
 app.include_router(integrations_router)
 app.include_router(admin_router)
 app.include_router(metrics_router)
+app.include_router(public_router)
 app.include_router(conversations_router)
 
 

@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Edge, Node } from "reactflow";
-import { ArrowLeft, Settings, Database, Activity, MessagesSquare, Save, Play, Bot, PanelLeftClose, PanelLeftOpen, Check } from "lucide-react";
+import { ArrowLeft, Settings, Database, Activity, MessagesSquare, Save, Play, Bot, PanelLeftClose, PanelLeftOpen, Check, Share2, Copy, ExternalLink } from "lucide-react";
 
 import FlowBuilder from "@/src/components/flow/FlowBuilder";
 import { getAgent, updateAgent } from "@/src/lib/services/agentes";
@@ -20,7 +20,7 @@ export default function AgentStudioPage() {
   const agentId = params.id;
 
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"config" | "knowledge" | "flow" | "chat">("config");
+  const [activeTab, setActiveTab] = useState<"config" | "knowledge" | "flow" | "chat" | "share">("config");
   const [navCollapsed, setNavCollapsed] = useState(false);
 
   // No Fluxo Lógico, recolhe a navegação interna para dar espaço total ao canvas.
@@ -44,6 +44,8 @@ export default function AgentStudioPage() {
   const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const savedSnapshotRef = useRef<string>("");
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [shareOrigin, setShareOrigin] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
 
   const canSave = useMemo(() => name.trim().length >= 3, [name]);
 
@@ -151,6 +153,34 @@ export default function AgentStudioPage() {
     };
   }, [loading, canSave, name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, agentId]);
 
+  useEffect(() => {
+    setShareOrigin(window.location.origin);
+  }, []);
+
+  function copyText(text: string, key: string) {
+    navigator.clipboard
+      ?.writeText(text)
+      .then(() => {
+        setCopied(key);
+        setTimeout(() => setCopied((c) => (c === key ? null : c)), 1800);
+      })
+      .catch(() => {});
+  }
+
+  const publicUrl = shareOrigin ? `${shareOrigin}/chat/${agentId}` : "";
+  const iframeSnippet = `<iframe src="${publicUrl}?embed=1" style="width:380px;height:560px;border:0;border-radius:16px"></iframe>`;
+  const bubbleSnippet = `<script>
+(function(){
+  var u="${publicUrl}?embed=1";
+  var b=document.createElement('button');b.innerHTML='\\uD83D\\uDCAC';b.title='Fale conosco';
+  b.style.cssText='position:fixed;bottom:20px;right:20px;width:56px;height:56px;border-radius:50%;border:0;background:#6366f1;color:#fff;font-size:24px;cursor:pointer;z-index:99999;box-shadow:0 4px 14px rgba(0,0,0,.3)';
+  var f=document.createElement('iframe');f.src=u;
+  f.style.cssText='position:fixed;bottom:88px;right:20px;width:380px;height:560px;max-width:92vw;border:0;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:99999;display:none;background:#0a0a0a';
+  b.onclick=function(){f.style.display=(f.style.display==='none')?'block':'none'};
+  document.body.appendChild(f);document.body.appendChild(b);
+})();
+<\/script>`;
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
@@ -217,6 +247,7 @@ export default function AgentStudioPage() {
             { id: "flow", label: "Fluxo Lógico", icon: Activity, desc: "Comportamento visual" },
             { id: "knowledge", label: "Base de Dados", icon: Database, desc: "Integração RAG" },
             { id: "chat", label: "Playground", icon: MessagesSquare, desc: "Testar respostas" },
+            { id: "share", label: "Compartilhar", icon: Share2, desc: "Link público e widget" },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -380,6 +411,75 @@ export default function AgentStudioPage() {
                 <Button onClick={() => router.push(`/agentes/${agentId}/chat`)} className="bg-emerald-600 hover:bg-emerald-500 text-white">
                   Abrir Chat Tela Cheia
                 </Button>
+              </div>
+            )}
+
+            {/* TAB: SHARE / PUBLICAR */}
+            {activeTab === "share" && (
+              <div className="p-8 max-w-3xl">
+                <div className="mb-8">
+                  <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
+                    <Share2 className="w-5 h-5 text-indigo-400" /> Compartilhar agente
+                  </h2>
+                  <p className="text-sm text-zinc-500">
+                    Publique o agente e disponibilize por um link público ou incorporado no seu site.
+                  </p>
+                </div>
+
+                {status !== "active" ? (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
+                    <p className="text-sm text-amber-200 mb-3">
+                      Para gerar o link público, o agente precisa estar <b>Ativo</b>. Só agentes
+                      publicados respondem publicamente.
+                    </p>
+                    <Button onClick={() => setStatus("active")} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                      Publicar agente (Ativar)
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-7">
+                    {/* Link público */}
+                    <div className="space-y-2">
+                      <Label>Link público</Label>
+                      <div className="flex gap-2">
+                        <Input readOnly value={publicUrl} className="bg-zinc-900/50 font-mono text-xs" />
+                        <Button variant="outline" onClick={() => copyText(publicUrl, "link")} className="gap-2 shrink-0">
+                          {copied === "link" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />} Copiar
+                        </Button>
+                        <Button variant="outline" asChild className="gap-2 shrink-0">
+                          <a href={publicUrl} target="_blank" rel="noreferrer">
+                            <ExternalLink className="h-4 w-4" /> Abrir
+                          </a>
+                        </Button>
+                      </div>
+                      <p className="text-xs text-zinc-500">
+                        Qualquer pessoa com esse link pode conversar com o agente, sem precisar de login.
+                      </p>
+                    </div>
+
+                    {/* Embed iframe */}
+                    <div className="space-y-2">
+                      <Label>Incorporar no site (iframe)</Label>
+                      <pre className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-[11px] text-zinc-300">
+                        {iframeSnippet}
+                      </pre>
+                      <Button variant="outline" size="sm" onClick={() => copyText(iframeSnippet, "iframe")} className="gap-2">
+                        {copied === "iframe" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />} Copiar código
+                      </Button>
+                    </div>
+
+                    {/* Floating bubble */}
+                    <div className="space-y-2">
+                      <Label>Botão flutuante de chat (cole antes de &lt;/body&gt;)</Label>
+                      <pre className="max-h-48 overflow-auto rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-[11px] text-zinc-300">
+                        {bubbleSnippet}
+                      </pre>
+                      <Button variant="outline" size="sm" onClick={() => copyText(bubbleSnippet, "bubble")} className="gap-2">
+                        {copied === "bubble" ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />} Copiar código
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
