@@ -252,15 +252,17 @@ function WhatsAppForm({ agents, webhookUrl, onClose, onSaved }: {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 text-xs text-zinc-400 space-y-2">
-          <p>1. Crie um app no <b>Meta for Developers</b> → produto <b>WhatsApp</b>.</p>
-          <p>2. No painel do WhatsApp, configure o <b>Webhook</b> com a URL abaixo e o <b>verify token</b> que você escolher aqui:</p>
+          <p className="font-semibold text-zinc-300">Como conectar (nesta ordem):</p>
+          <p>1. No <b>Meta for Developers</b>, crie um app → adicione o produto <b>WhatsApp</b>. Copie o <b>phone number ID</b> e o <b>access token</b>.</p>
+          <p>2. Preencha os campos abaixo (agente, verify token à sua escolha, phone number ID e token) e clique em <b>Salvar e ativar</b> — isso guarda a configuração.</p>
+          <p>3. <b>Só então</b>, no Meta → WhatsApp → Configuração, edite o <b>Webhook</b> com esta URL e o <b>mesmo verify token</b>:</p>
           <div className="flex items-center gap-2">
             <code className="flex-1 truncate rounded bg-zinc-950 px-2 py-1 text-zinc-300">{webhookUrl}</code>
             <Button size="sm" variant="outline" className="gap-1 h-7" onClick={() => navigator.clipboard.writeText(webhookUrl)}>
               <Copy className="w-3 h-3" /> Copiar
             </Button>
           </div>
-          <p>3. Copie o <b>phone number ID</b> e o <b>access token</b> do painel e cole abaixo.</p>
+          <p>4. Assine o campo <b>messages</b>. Pronto — as mensagens desse número serão respondidas pelo agente. 🎉</p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
