@@ -1,9 +1,9 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Edge, Node } from "reactflow";
-import { ArrowLeft, Settings, Database, Activity, MessagesSquare, Save, Play, Bot, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ArrowLeft, Settings, Database, Activity, MessagesSquare, Save, Play, Bot, PanelLeftClose, PanelLeftOpen, Check } from "lucide-react";
 
 import FlowBuilder from "@/src/components/flow/FlowBuilder";
 import { getAgent, updateAgent } from "@/src/lib/services/agentes";
@@ -41,6 +41,9 @@ export default function AgentStudioPage() {
   const [initialFlow, setInitialFlow] = useState<{ nodes: Node[]; edges: Edge[]; } | null>(null);
   
   const [saving, setSaving] = useState(false);
+  const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const savedSnapshotRef = useRef<string>("");
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const canSave = useMemo(() => name.trim().length >= 3, [name]);
 
@@ -66,6 +69,17 @@ export default function AgentStudioPage() {
         setInitialFlow(agent.flow);
         setFlowNodes(agent.flow.nodes || []);
         setFlowEdges(agent.flow.edges || []);
+
+        savedSnapshotRef.current = JSON.stringify({
+          name: agent.name,
+          description: agent.description || "",
+          provider: agent.provider || "openai",
+          model: agent.model || "gpt-4o-mini",
+          systemPrompt: agent.system_prompt || "",
+          status: agent.status,
+          flowNodes: agent.flow.nodes || [],
+          flowEdges: agent.flow.edges || [],
+        });
       } catch (error) {
         console.error(error);
       } finally {
@@ -94,6 +108,10 @@ export default function AgentStudioPage() {
         alert("Agente não encontrado.");
         return;
       }
+      savedSnapshotRef.current = JSON.stringify({
+        name, description, provider, model, systemPrompt, status, flowNodes, flowEdges,
+      });
+      setAutoSaveState("saved");
     } catch (error) {
       console.error(error);
       alert("Erro ao salvar alterações.");
@@ -101,6 +119,37 @@ export default function AgentStudioPage() {
       setSaving(false);
     }
   }
+
+  // Auto-save: persiste sozinho ~1,5s após a última alteração (sem botão).
+  useEffect(() => {
+    if (loading || !canSave) return;
+    const snapshot = JSON.stringify({
+      name, description, provider, model, systemPrompt, status, flowNodes, flowEdges,
+    });
+    if (snapshot === savedSnapshotRef.current) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      setAutoSaveState("saving");
+      try {
+        await updateAgent(agentId, {
+          name,
+          description,
+          provider,
+          model,
+          system_prompt: systemPrompt,
+          status,
+          flow: { nodes: flowNodes, edges: flowEdges },
+        });
+        savedSnapshotRef.current = snapshot;
+        setAutoSaveState("saved");
+      } catch {
+        setAutoSaveState("idle");
+      }
+    }, 1500);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [loading, canSave, name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, agentId]);
 
   if (loading) {
     return (
@@ -131,6 +180,17 @@ export default function AgentStudioPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <span className="hidden text-xs text-zinc-500 sm:block min-w-[140px] text-right">
+            {autoSaveState === "saving" ? (
+              "Salvando…"
+            ) : autoSaveState === "saved" ? (
+              <span className="inline-flex items-center gap-1 text-emerald-400">
+                <Check className="h-3.5 w-3.5" /> Salvo automaticamente
+              </span>
+            ) : (
+              ""
+            )}
+          </span>
           <Button variant="outline" onClick={() => setActiveTab("chat")} className="gap-2 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10">
             <Play className="w-4 h-4" /> Testar
           </Button>

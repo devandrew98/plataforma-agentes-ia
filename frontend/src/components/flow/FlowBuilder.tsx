@@ -25,6 +25,7 @@ import {
   MousePointerClick,
   PanelLeftClose,
   PanelLeftOpen,
+  Copy,
 } from "lucide-react";
 
 import { nodeTypes, KIND_STYLES, NodeKind } from "./nodeTypes";
@@ -355,6 +356,59 @@ export default function FlowBuilder({
     setSelectedNodeId(null);
   }, [selectedNodeId, setNodes, setEdges]);
 
+  // Duplica o(s) bloco(s) selecionado(s) — via botão ou Ctrl/Cmd+D.
+  const duplicateSelected = useCallback(() => {
+    const sel = (nodes as Node<FlowNodeData>[]).filter(
+      (n) => (n as any).selected || n.id === selectedNodeId
+    );
+    if (!sel.length) return;
+    const copies = sel.map((orig) => ({
+      ...orig,
+      id: newId((orig.type as string) || "node"),
+      position: { x: orig.position.x + 40, y: orig.position.y + 40 },
+      data: { ...orig.data, config: { ...(orig.data.config || {}) } },
+      selected: false,
+    }));
+    setNodes((nds) => nds.map((n) => ({ ...n, selected: false })).concat(copies as any));
+    setSelectedNodeId(copies[copies.length - 1].id);
+  }, [nodes, selectedNodeId, setNodes]);
+
+  // Remove via tecla Del/Backspace o(s) bloco(s) selecionado(s).
+  const deleteViaKey = useCallback(() => {
+    const ids = new Set(
+      (nodes as Node[])
+        .filter((n) => (n as any).selected || n.id === selectedNodeId)
+        .map((n) => n.id)
+    );
+    if (!ids.size) return;
+    setNodes((nds) => nds.filter((n) => !ids.has(n.id)));
+    setEdges((eds) => eds.filter((e) => !ids.has(e.source) && !ids.has(e.target)));
+    setSelectedNodeId((cur) => (cur && ids.has(cur) ? null : cur));
+  }, [nodes, selectedNodeId, setNodes, setEdges]);
+
+  // Atalhos de teclado (ignora quando o foco está num campo de texto).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = document.activeElement as HTMLElement | null;
+      const typing =
+        !!el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT" ||
+          el.isContentEditable);
+      if (typing) return;
+      if ((e.ctrlKey || e.metaKey) && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        duplicateSelected();
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        deleteViaKey();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [duplicateSelected, deleteViaKey]);
+
   const updateSelected = useCallback(
     (patch: Partial<FlowNodeData>) => {
       if (!selectedNodeId) return;
@@ -410,6 +464,7 @@ export default function FlowBuilder({
         minZoom={0.2}
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={EDGE_STYLE}
+        deleteKeyCode={null}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#3f3f46" />
         <Controls className="!bg-zinc-900 !border-zinc-700 [&>button]:!bg-zinc-800 [&>button]:!border-zinc-700 [&>button:hover]:!bg-zinc-700 [&_svg]:!fill-zinc-200" />
@@ -450,7 +505,8 @@ export default function FlowBuilder({
                 </button>
               </div>
               <p className="mb-3 text-[11px] leading-snug text-zinc-500">
-                Clique para adicionar (ou arraste). Duplo clique num bloco abre as opções.
+                Clique para adicionar (ou arraste). Duplo clique abre as opções.
+                <br />Atalhos: <b className="text-zinc-400">Ctrl+D</b> duplica · <b className="text-zinc-400">Del</b> remove.
               </p>
               <div className="max-h-[calc(100vh-16rem)] space-y-1.5 overflow-y-auto pr-1">
                 {PALETTE.map(({ type, hint }) => {
@@ -763,9 +819,12 @@ export default function FlowBuilder({
             )}
           </div>
 
-          <div className="border-t border-zinc-800 p-4">
-            <Button variant="destructive" className="w-full gap-2" onClick={removeSelected}>
-              <Trash2 className="h-4 w-4" /> Remover bloco
+          <div className="flex gap-2 border-t border-zinc-800 p-4">
+            <Button variant="outline" className="flex-1 gap-2" onClick={duplicateSelected}>
+              <Copy className="h-4 w-4" /> Duplicar
+            </Button>
+            <Button variant="destructive" className="flex-1 gap-2" onClick={removeSelected}>
+              <Trash2 className="h-4 w-4" /> Remover
             </Button>
           </div>
         </div>
