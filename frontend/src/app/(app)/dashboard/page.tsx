@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, BookOpen, Activity, Plus, GraduationCap, ArrowRight, Sparkles, Layers } from "lucide-react";
+import { Bot, BookOpen, Activity, Plus, GraduationCap, ArrowRight, Sparkles, Layers, MessageSquare, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Agente, listAgents } from "@/src/lib/services/agentes";
 import { listKbs } from "@/src/lib/services/kb";
 import { getSession } from "@/src/lib/services/auth";
+import { getMetricsOverview, MetricsOverview } from "@/src/lib/services/metrics";
 
 function fmtDate(iso?: string) {
   if (!iso) return "-";
@@ -32,10 +33,13 @@ export default function DashboardPage() {
   const [kbCount, setKbCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [firstName, setFirstName] = useState("");
+  const [metrics, setMetrics] = useState<MetricsOverview | null>(null);
 
   useEffect(() => {
     const s = getSession();
     if (s?.user?.name) setFirstName(s.user.name.split(" ")[0]);
+
+    getMetricsOverview().then(setMetrics).catch(() => {});
 
     (async () => {
       try {
@@ -81,6 +85,26 @@ export default function DashboardPage() {
       icon: BookOpen,
       tint: "text-emerald-400",
       sub: kbCount > 0 ? "Disponíveis para RAG" : "Crie uma base para o RAG",
+    },
+    {
+      label: "Conversas",
+      value: metrics?.conversations,
+      icon: MessageSquare,
+      tint: "text-sky-400",
+      sub:
+        metrics && metrics.conversations > 0
+          ? "Iniciadas com seus agentes"
+          : "Nenhuma conversa ainda",
+    },
+    {
+      label: "Mensagens",
+      value: metrics?.messages,
+      icon: MessageCircle,
+      tint: "text-amber-400",
+      sub:
+        metrics && metrics.messages > 0
+          ? `${metrics.user_messages} enviadas por usuários`
+          : "Comece a conversar",
     },
   ];
 
@@ -139,7 +163,7 @@ export default function DashboardPage() {
       )}
 
       {/* Cards de métricas */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {stats.map((s, i) => {
           const Icon = s.icon;
           return (
@@ -162,7 +186,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className={`text-3xl font-bold ${s.highlight ? "text-indigo-400" : ""}`}>
-                    {loading ? "—" : s.value}
+                    {loading ? "—" : s.value ?? "—"}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{s.sub}</p>
                 </CardContent>
