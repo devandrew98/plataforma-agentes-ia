@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getSession, login, register, oauthLoginUrl, OAuthProvider, wakeBackend } from "@/src/lib/services/auth";
+import { getSession, login, register, oauthLoginUrl, OAuthProvider, wakeBackend, fetchOAuthProviders } from "@/src/lib/services/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Zap } from "lucide-react";
 
@@ -68,6 +68,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
+  const [oauthProviders, setOauthProviders] = useState<Record<string, boolean> | null>(null);
 
   useEffect(() => {
     const s = getSession();
@@ -77,6 +78,8 @@ export default function LoginPage() {
     }
     // Acorda o backend (plano grátis hiberna) enquanto o usuário digita.
     wakeBackend();
+    // Descobre quais provedores sociais estão ativos — só mostramos esses.
+    fetchOAuthProviders().then(setOauthProviders).catch(() => {});
     // Mensagem de erro vinda do fluxo OAuth (?error=...)
     const params = new URLSearchParams(window.location.search);
     const err = params.get("error");
@@ -150,6 +153,12 @@ export default function LoginPage() {
     },
   ];
 
+  // Mostra apenas os provedores realmente configurados no backend.
+  // Enquanto carrega, escondemos o Facebook (não configurado em produção).
+  const visibleProviders = socialProviders.filter((p) =>
+    oauthProviders ? !!oauthProviders[p.id] : p.id !== "facebook"
+  );
+
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-black px-4">
 
@@ -217,9 +226,11 @@ export default function LoginPage() {
             </AnimatePresence>
           </div>
 
-          {/* Social Buttons */}
+          {/* Social Buttons (apenas provedores configurados) */}
+          {visibleProviders.length > 0 && (
+          <>
           <div className="space-y-2.5 mb-6">
-            {socialProviders.map((provider) => (
+            {visibleProviders.map((provider) => (
               <motion.button
                 key={provider.id}
                 whileHover={{ scale: 1.01 }}
@@ -252,6 +263,8 @@ export default function LoginPage() {
             <span className="text-xs text-zinc-600 font-medium">ou com e-mail</span>
             <div className="flex-1 h-px bg-zinc-800" />
           </div>
+          </>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
