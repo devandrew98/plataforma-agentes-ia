@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, BookOpen, Activity, Plus, GraduationCap, ArrowRight, Sparkles, Layers, MessageSquare, MessageCircle } from "lucide-react";
+import { Bot, BookOpen, Activity, Plus, GraduationCap, ArrowRight, Sparkles, Layers, MessageSquare, MessageCircle, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Agente, listAgents } from "@/src/lib/services/agentes";
 import { listKbs } from "@/src/lib/services/kb";
 import { getSession } from "@/src/lib/services/auth";
-import { getMetricsOverview, MetricsOverview } from "@/src/lib/services/metrics";
+import { getMetricsOverview, getMessagesDaily, MetricsOverview, DailyPoint } from "@/src/lib/services/metrics";
 
 function fmtDate(iso?: string) {
   if (!iso) return "-";
@@ -34,12 +34,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [firstName, setFirstName] = useState("");
   const [metrics, setMetrics] = useState<MetricsOverview | null>(null);
+  const [daily, setDaily] = useState<DailyPoint[]>([]);
 
   useEffect(() => {
     const s = getSession();
     if (s?.user?.name) setFirstName(s.user.name.split(" ")[0]);
 
     getMetricsOverview().then(setMetrics).catch(() => {});
+    getMessagesDaily(7).then(setDaily).catch(() => {});
 
     (async () => {
       try {
@@ -195,6 +197,58 @@ export default function DashboardPage() {
           );
         })}
       </div>
+
+      {/* Gráfico: mensagens nos últimos 7 dias */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BarChart3 className="w-4 h-4 text-indigo-400" /> Mensagens nos últimos 7 dias
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {daily.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Sem dados ainda. Converse com um agente para o gráfico aparecer.
+            </p>
+          ) : (
+            (() => {
+              const max = Math.max(1, ...daily.map((d) => d.count));
+              const total = daily.reduce((s, d) => s + d.count, 0);
+              return (
+                <>
+                  <div className="flex items-end gap-2 h-36">
+                    {daily.map((d) => {
+                      const pct = Math.round((d.count / max) * 100);
+                      const label = new Date(d.date + "T12:00:00")
+                        .toLocaleDateString("pt-BR", { weekday: "short" })
+                        .replace(".", "");
+                      return (
+                        <div
+                          key={d.date}
+                          className="flex flex-1 flex-col items-center gap-1.5"
+                          title={`${d.count} mensagem(ns) · ${d.date}`}
+                        >
+                          <div className="flex w-full items-end h-28">
+                            <div
+                              className="w-full rounded-t-md bg-gradient-to-t from-indigo-600 to-indigo-400 transition-all hover:from-indigo-500 hover:to-indigo-300"
+                              style={{ height: `${d.count > 0 ? Math.max(pct, 6) : 2}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] capitalize text-zinc-500">{label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Total no período:{" "}
+                    <span className="font-medium text-zinc-300">{total}</span> mensagens
+                  </p>
+                </>
+              );
+            })()
+          )}
+        </CardContent>
+      </Card>
 
       {/* Ações rápidas */}
       <div>

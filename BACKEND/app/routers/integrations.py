@@ -130,6 +130,24 @@ def create_request(payload: RequestCreate, db: Session = Depends(get_db), curren
     db.add(req)
     db.commit()
     db.refresh(req)
+
+    # Notifica o admin por e-mail (best-effort; não falha se SMTP não estiver setado).
+    try:
+        from ..email_utils import send_email
+
+        send_email(
+            ADMIN_EMAIL,
+            f"[ARgent.ai] Nova solicitação de integração: {req.channel}",
+            (
+                f"Usuário: {req.user_email}\n"
+                f"Canal: {req.channel}\n"
+                f"Mensagem: {req.message or '(sem mensagem)'}\n"
+                f"ID da solicitação: {req.id}\n"
+            ),
+        )
+    except Exception:
+        pass
+
     return {
         "ok": True,
         "id": req.id,

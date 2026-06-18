@@ -34,3 +34,23 @@ export async function getMetricsOverview(): Promise<MetricsOverview | null> {
     return null;
   }
 }
+
+export interface DailyPoint {
+  date: string;
+  count: number;
+}
+
+/** Série de mensagens por dia (gráfico do dashboard). */
+export async function getMessagesDaily(days = 7): Promise<DailyPoint[]> {
+  try {
+    const res = await fetch(`${API_URL}/metrics/messages-daily?days=${days}`, {
+      headers: getHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.series) ? (data.series as DailyPoint[]) : [];
+  } catch {
+    return [];
+  }
+}
