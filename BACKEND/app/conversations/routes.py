@@ -83,6 +83,11 @@ def chat(
 
     messages = [{"role": "system", "content": agent.system_prompt}]
 
+    from app.flow_runtime import flow_to_instructions
+    roteiro = flow_to_instructions(agent.flow)
+    if roteiro:
+        messages.append({"role": "system", "content": roteiro})
+
     # RAG + fontes
     context, sources = retrieve_context_with_sources(
         payload.message,

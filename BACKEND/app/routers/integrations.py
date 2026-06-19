@@ -255,6 +255,10 @@ async def whatsapp_incoming(request: Request, db: Session = Depends(get_db)):
 
     # montar prompt com RAG
     chat = [{"role": "system", "content": agent.system_prompt}]
+    from ..flow_runtime import flow_to_instructions
+    roteiro = flow_to_instructions(agent.flow)
+    if roteiro:
+        chat.append({"role": "system", "content": roteiro})
     context, _ = retrieve_context_with_sources(text, agent_id=agent.id, top_k=4)
     if context:
         chat.append({"role": "system", "content": f"Use o CONTEXTO:\n{context}"})

@@ -67,6 +67,11 @@ def public_chat(agent_id: int, payload: PublicChatRequest, db: Session = Depends
 
     messages = [{"role": "system", "content": agent.system_prompt}]
 
+    from ..flow_runtime import flow_to_instructions
+    roteiro = flow_to_instructions(agent.flow)
+    if roteiro:
+        messages.append({"role": "system", "content": roteiro})
+
     context, sources = retrieve_context_with_sources(text, agent_id=agent.id, top_k=4)
     if context:
         messages.append(

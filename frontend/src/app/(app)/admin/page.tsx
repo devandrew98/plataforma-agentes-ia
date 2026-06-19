@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Users, Bot, BookOpen, Layers, Inbox, ShieldAlert, Loader2 } from "lucide-react";
+import { Users, Bot, BookOpen, Layers, Inbox, ShieldAlert, Loader2, MessageSquare, MessagesSquare, Trash2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import { getStats, getUsers, getRequests, updateRequestStatus, type AdminStats, type AdminUser, type AdminRequest } from "@/src/lib/services/admin";
+import { getStats, getUsers, getRequests, updateRequestStatus, getAllAgents, deleteUser, type AdminStats, type AdminUser, type AdminRequest, type AdminAgent } from "@/src/lib/services/admin";
 
 function fmt(iso?: string) {
   if (!iso) return "—";
@@ -27,18 +27,30 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [requests, setRequests] = useState<AdminRequest[]>([]);
+  const [agents, setAgents] = useState<AdminAgent[]>([]);
 
   async function load() {
     try {
       const s = await getStats();
       setStats(s);
-      const [u, r] = await Promise.all([getUsers(), getRequests()]);
+      const [u, r, ag] = await Promise.all([getUsers(), getRequests(), getAllAgents()]);
       setUsers(u);
       setRequests(r);
+      setAgents(ag);
     } catch {
       setForbidden(true);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function removeUser(u: AdminUser) {
+    if (!confirm(`Excluir o usuário ${u.email}?\nIsso apaga os agentes e bases dele. Não dá para desfazer.`)) return;
+    const ok = await deleteUser(u.id);
+    if (ok) {
+      setUsers((us) => us.filter((x) => x.id !== u.id));
+    } else {
+      alert("Não foi possível excluir (o administrador não pode ser excluído).");
     }
   }
 
@@ -72,6 +84,8 @@ export default function AdminPage() {
     { label: "Agentes ativos", value: stats?.active_agents, icon: Bot, tint: "text-emerald-400" },
     { label: "Bases", value: stats?.knowledge_bases, icon: BookOpen, tint: "text-sky-400" },
     { label: "Integrações", value: stats?.integrations, icon: Layers, tint: "text-amber-400" },
+    { label: "Conversas", value: stats?.total_conversations, icon: MessagesSquare, tint: "text-sky-400" },
+    { label: "Mensagens", value: stats?.total_messages, icon: MessageSquare, tint: "text-violet-400" },
     { label: "Solicitações pendentes", value: stats?.pending_requests, icon: Inbox, tint: "text-rose-400" },
   ];
 
@@ -84,7 +98,7 @@ export default function AdminPage() {
         <p className="text-muted-foreground">Visão geral da plataforma, usuários e solicitações.</p>
       </div>
 
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-4">
         {cards.map((c) => {
           const Icon = c.icon;
           return (
@@ -148,10 +162,50 @@ export default function AdminPage() {
                   {u.has_own_key && <Badge variant="outline" className="text-emerald-400 border-emerald-500/30">chave própria</Badge>}
                   <Badge variant="outline" className="text-zinc-400 border-zinc-700">{u.agents} agente(s)</Badge>
                   <span className="hidden text-xs text-zinc-600 sm:block">{fmt(u.created_at)}</span>
+                  <button
+                    onClick={() => removeUser(u)}
+                    title="Excluir usuário"
+                    className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Todos os agentes da plataforma */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5 text-indigo-400" /> Todos os agentes ({agents.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {agents.length === 0 ? (
+            <p className="py-4 text-sm text-muted-foreground">Nenhum agente ainda.</p>
+          ) : (
+            <div className="space-y-2">
+              {agents.map((a) => (
+                <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-zinc-100">{a.name}</div>
+                    <div className="truncate text-xs text-zinc-500">
+                      {a.owner_email || "—"} · {a.provider}/{a.model}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {a.status === "active" ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25">Ativo</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-zinc-400 border-zinc-700">{a.status}</Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">{a.messages} msgs</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

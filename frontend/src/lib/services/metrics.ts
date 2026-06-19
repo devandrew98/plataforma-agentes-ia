@@ -4,6 +4,12 @@ import { getSession } from "./auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+export interface TopAgent {
+  id: number;
+  name: string;
+  messages: number;
+}
+
 export interface MetricsOverview {
   agents: number;
   active_agents: number;
@@ -11,6 +17,9 @@ export interface MetricsOverview {
   messages: number;
   user_messages: number;
   integrations: number;
+  top_agents?: TopAgent[];
+  estimated_tokens?: number;
+  estimated_cost_usd?: number;
 }
 
 function getHeaders(): Record<string, string> {

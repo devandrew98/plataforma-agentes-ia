@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, BookOpen, Activity, Plus, GraduationCap, ArrowRight, Sparkles, Layers, MessageSquare, MessageCircle, BarChart3 } from "lucide-react";
+import { Bot, BookOpen, Activity, Plus, GraduationCap, ArrowRight, Sparkles, Layers, MessageSquare, MessageCircle, BarChart3, Trophy, Zap } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
@@ -249,6 +249,63 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Agentes mais usados + Consumo de IA */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Trophy className="w-4 h-4 text-amber-400" /> Agentes mais usados
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!metrics?.top_agents || metrics.top_agents.filter((a) => a.messages > 0).length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem uso ainda. Converse com um agente para ver o ranking.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {metrics.top_agents
+                  .filter((a) => a.messages > 0)
+                  .map((a, i) => (
+                    <div key={a.id} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-xs font-bold text-zinc-300">
+                          {i + 1}
+                        </span>
+                        <span className="truncate text-sm text-zinc-200">{a.name}</span>
+                      </div>
+                      <span className="shrink-0 text-xs text-muted-foreground">{a.messages} msgs</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Zap className="w-4 h-4 text-indigo-400" /> Consumo de IA (estimado)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold">
+                {(metrics?.estimated_tokens ?? 0).toLocaleString("pt-BR")}
+              </span>
+              <span className="text-sm text-muted-foreground">tokens</span>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Custo estimado:{" "}
+              <span className="font-medium text-emerald-400">
+                US$ {(metrics?.estimated_cost_usd ?? 0).toFixed(4)}
+              </span>
+            </p>
+            <p className="mt-2 text-[11px] text-zinc-600">
+              Estimativa com base no volume de mensagens (modelo gpt-4o-mini).
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Ações rápidas */}
       <div>

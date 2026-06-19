@@ -39,7 +39,42 @@ def stats(db: Session = Depends(get_db), _admin=Depends(require_admin)):
         "knowledge_bases": db.query(func.count(models.KnowledgeBase.id)).scalar() or 0,
         "integrations": db.query(func.count(models.Integration.id)).scalar() or 0,
         "pending_requests": db.query(func.count(models.IntegrationRequest.id)).filter(models.IntegrationRequest.status == "pendente").scalar() or 0,
+        "total_conversations": db.query(func.count(models.Conversation.id)).scalar() or 0,
+        "total_messages": db.query(func.count(models.ChatMessage.id)).scalar() or 0,
     }
+
+
+@router.get("/agents")
+def list_all_agents(db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    """Todos os agentes da plataforma (com dono e nº de mensagens)."""
+    owners = {u.id: u.email for u in db.query(models.User).all()}
+    agents = db.query(models.Agent).order_by(models.Agent.id.desc()).all()
+    result = []
+    for a in agents:
+        msgs = db.query(func.count(models.ChatMessage.id)).filter(models.ChatMessage.agent_id == a.id).scalar() or 0
+        result.append({
+            "id": a.id,
+            "name": a.name,
+            "status": a.status,
+            "provider": a.provider,
+            "model": a.model,
+            "owner_email": owners.get(a.owner_id),
+            "messages": int(msgs),
+        })
+    return result
+
+
+@router.delete("/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    """Exclui um usuário (e, em cascata, seus agentes/bases). Não exclui o admin."""
+    u = db.query(models.User).filter(models.User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    if (u.email or "").lower() == ADMIN_EMAIL:
+        raise HTTPException(status_code=400, detail="Não é possível excluir o administrador.")
+    db.delete(u)
+    db.commit()
+    return {"deleted": True}
 
 
 @router.get("/users")

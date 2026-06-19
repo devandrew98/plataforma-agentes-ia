@@ -11,6 +11,18 @@ export type AdminStats = {
   knowledge_bases: number;
   integrations: number;
   pending_requests: number;
+  total_conversations?: number;
+  total_messages?: number;
+};
+
+export type AdminAgent = {
+  id: number;
+  name: string;
+  status: string;
+  provider: string;
+  model: string;
+  owner_email?: string | null;
+  messages: number;
 };
 
 export type AdminUser = {
@@ -65,4 +77,18 @@ export async function updateRequestStatus(id: number, status: string): Promise<v
     headers: headers(true),
     body: JSON.stringify({ status }),
   });
+}
+
+export async function getAllAgents(): Promise<AdminAgent[]> {
+  const res = await fetch(`${API_URL}/admin/agents`, { headers: headers(), cache: "no-store" });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function deleteUser(id: number): Promise<boolean> {
+  const res = await fetch(`${API_URL}/admin/users/${id}`, {
+    method: "DELETE",
+    headers: headers(),
+  });
+  return res.ok;
 }

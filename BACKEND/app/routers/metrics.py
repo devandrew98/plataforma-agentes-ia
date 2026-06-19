@@ -72,6 +72,29 @@ def overview(
         .count()
     )
 
+    # Agentes mais usados (por nº de mensagens).
+    top_agents = []
+    if agent_ids:
+        rows = (
+            db.query(
+                models.Agent.id,
+                models.Agent.name,
+                func.count(models.ChatMessage.id),
+            )
+            .outerjoin(models.ChatMessage, models.ChatMessage.agent_id == models.Agent.id)
+            .filter(models.Agent.owner_id == uid)
+            .group_by(models.Agent.id, models.Agent.name)
+            .order_by(func.count(models.ChatMessage.id).desc())
+            .limit(5)
+            .all()
+        )
+        top_agents = [{"id": r[0], "name": r[1], "messages": int(r[2])} for r in rows]
+
+    # Consumo de IA (estimativa simples): ~300 tokens por mensagem, preço
+    # médio combinado ~US$ 0,0004 / 1k tokens (gpt-4o-mini).
+    est_tokens = messages * 300
+    est_cost_usd = round(est_tokens / 1000 * 0.0004, 4)
+
     return {
         "agents": total_agents,
         "active_agents": active_agents,
@@ -79,6 +102,9 @@ def overview(
         "messages": messages,
         "user_messages": user_messages,
         "integrations": integrations,
+        "top_agents": top_agents,
+        "estimated_tokens": est_tokens,
+        "estimated_cost_usd": est_cost_usd,
     }
 
 
