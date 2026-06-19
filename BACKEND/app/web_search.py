@@ -21,7 +21,11 @@ def web_search(query: str, max_results: int = 4) -> Tuple[str, List[dict]]:
     try:
         from ddgs import DDGS
 
-        results = list(DDGS().text(query, max_results=max_results))
+        # region br-pt: resultados em português do Brasil (sem isso o DDG
+        # interpreta a query em outros idiomas e traz coisas irrelevantes).
+        results = list(
+            DDGS().text(query, region="br-pt", safesearch="moderate", max_results=max_results)
+        )
     except Exception as e:  # lib ausente, rate-limit, rede, etc.
         print(f"web_search: busca falhou ({e})")
         return "", []
