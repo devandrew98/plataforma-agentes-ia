@@ -6,7 +6,14 @@ import { getSession } from "./auth";
 export type AgenteStatus = "draft" | "active" | "paused";
 
 export type KnowledgeMode = "none" | "rag" | "web";
-export type AgentKnowledge = { mode: KnowledgeMode; kbId?: string | null };
+// rag/web são flags independentes (pode usar os dois). `mode` fica só para
+// compatibilidade com agentes salvos no formato antigo.
+export type AgentKnowledge = {
+  rag?: boolean;
+  web?: boolean;
+  kbId?: string | null;
+  mode?: KnowledgeMode;
+};
 
 export interface Agente {
   id: number;

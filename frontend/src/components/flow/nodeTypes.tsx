@@ -131,7 +131,7 @@ function configSummary(data: NodeData): string {
 }
 
 const handleClass =
-  "!w-3 !h-3 !border-2 !border-zinc-950";
+  "!w-4 !h-4 !border-2 !border-zinc-950 !cursor-crosshair transition-transform hover:!scale-125";
 
 function NodeShell({ data, selected }: { data: NodeData; selected?: boolean }) {
   const style = KIND_STYLES[data.kind] || KIND_STYLES.llm;

@@ -164,14 +164,19 @@ def retrieve_context_with_sources(
 
     with SessionLocal() as db:
         actual_kb_ids = list(kb_ids) if kb_ids is not None else []
-        mode = None
+        use_rag = bool(actual_kb_ids)
+        use_web = False
+
         if agent_id is not None:
             agent = db.query(Agent).filter(Agent.id == agent_id).first()
             flow = (agent.flow or {}) if agent else {}
 
-            # Estratégia de conhecimento escolhida na criação/config do agente.
+            # Estratégia de conhecimento: flags rag/web (com compat ao formato
+            # antigo que usava um único "mode").
             knowledge = flow.get("knowledge") or {}
-            mode = (knowledge.get("mode") or "").strip().lower() or None
+            mode = (knowledge.get("mode") or "").strip().lower()
+            use_rag = use_rag or bool(knowledge.get("rag")) or mode == "rag"
+            use_web = bool(knowledge.get("web")) or mode == "web"
 
             kid = knowledge.get("kbId")
             if kid:
@@ -185,94 +190,88 @@ def retrieve_context_with_sources(
                 if node.get("type") == "rag" or node.get("data", {}).get("kind") == "rag":
                     kb_id_val = node.get("data", {}).get("config", {}).get("kbId")
                     if kb_id_val:
+                        use_rag = True
                         try:
                             actual_kb_ids.append(int(kb_id_val))
                         except (ValueError, TypeError):
                             pass
 
-        # Modo "internet": pesquisa na web e devolve como contexto.
-        if mode == "web":
+        contexts: List[str] = []
+        all_sources: List[dict] = []
+
+        # ---- Internet ----
+        if use_web:
             from app.web_search import web_search
 
-            return web_search(query, max_results=top_k)
+            wc, ws = web_search(query, max_results=top_k)
+            if wc:
+                contexts.append(wc)
+                all_sources.extend(ws)
 
-        # Modo "só IA": sem contexto externo.
-        if mode == "none":
-            return "", []
+        # ---- Base de conhecimento (RAG semântico) ----
+        actual_kb_ids = list(dict.fromkeys(actual_kb_ids))
+        if use_rag and actual_kb_ids:
+            query_vector = None
+            try:
+                query_embs = embed_texts([query])
+                query_vector = query_embs[0] if query_embs else None
+            except Exception as e:
+                print(f"Erro ao gerar embedding da query: {e}")
 
-        # Modo "base de conhecimento" (ou compatibilidade): precisa de uma base.
-        actual_kb_ids = list(dict.fromkeys(actual_kb_ids))  # remove duplicados
-        if not actual_kb_ids:
-            return "", []
+            if query_vector is not None:
+                chunks_found = []
+                qdrant_success = False
+                try:
+                    from app.rag.vectorstore import search_chunks
+                    for kb_id in actual_kb_ids:
+                        hits = search_chunks(kb_id=kb_id, query_embedding=query_vector, top_k=top_k)
+                        for hit in hits:
+                            payload = hit.payload
+                            chunks_found.append({
+                                "text": payload.get("text", ""),
+                                "filename": payload.get("title", f"KB {kb_id}"),
+                                "score": hit.score,
+                            })
+                    if chunks_found:
+                        qdrant_success = True
+                except Exception as q_err:
+                    print(f"Qdrant indisponível (fallback do banco): {q_err}")
 
-        try:
-            query_embs = embed_texts([query])
-            if not query_embs:
-                return "", []
-            query_vector = query_embs[0]
-        except Exception as e:
-            print(f"Erro ao gerar embedding da query: {e}")
-            return "", []
+                if not qdrant_success:
+                    db_chunks = db.query(DocumentChunk).filter(DocumentChunk.kb_id.in_(actual_kb_ids)).all()
+                    doc_map = {}
+                    for doc in db.query(KnowledgeBaseDocument).filter(KnowledgeBaseDocument.kb_id.in_(actual_kb_ids)).all():
+                        doc_map[doc.id] = doc.filename
 
-        chunks_found = []
-        qdrant_success = False
-        try:
-            from app.rag.vectorstore import search_chunks
-            for kb_id in actual_kb_ids:
-                hits = search_chunks(kb_id=kb_id, query_embedding=query_vector, top_k=top_k)
-                for hit in hits:
-                    payload = hit.payload
-                    chunks_found.append({
-                        "text": payload.get("text", ""),
-                        "filename": payload.get("title", f"KB {kb_id}"),
-                        "score": hit.score
+                    scored_chunks = []
+                    for chunk in db_chunks:
+                        cv = chunk.embedding
+                        if not cv:
+                            continue
+                        dot = sum(a * b for a, b in zip(query_vector, cv))
+                        m1 = math.sqrt(sum(a * a for a in query_vector))
+                        m2 = math.sqrt(sum(b * b for b in cv))
+                        sim = dot / (m1 * m2) if m1 and m2 else 0.0
+                        scored_chunks.append({
+                            "text": chunk.text,
+                            "filename": doc_map.get(chunk.doc_id, f"Documento #{chunk.doc_id}"),
+                            "score": sim,
+                        })
+                    scored_chunks.sort(key=lambda x: x["score"], reverse=True)
+                    chunks_found = scored_chunks[:top_k]
+
+                parts = []
+                for i, chunk in enumerate(chunks_found):
+                    text = chunk["text"]
+                    parts.append(f"--- Trecho {i+1} de {chunk['filename']} ---\n{text}\n")
+                    all_sources.append({
+                        "filename": chunk["filename"],
+                        "text": text[:200] + "..." if len(text) > 200 else text,
                     })
-            if chunks_found:
-                qdrant_success = True
-        except Exception as q_err:
-            print(f"Qdrant desativado ou fora do ar (usando fallback do banco): {q_err}")
+                if parts:
+                    contexts.append("BASE DE CONHECIMENTO:\n" + "\n".join(parts))
 
-        if not qdrant_success:
-            db_chunks = db.query(DocumentChunk).filter(DocumentChunk.kb_id.in_(actual_kb_ids)).all()
-            
-            doc_map = {}
-            docs = db.query(KnowledgeBaseDocument).filter(KnowledgeBaseDocument.kb_id.in_(actual_kb_ids)).all()
-            for doc in docs:
-                doc_map[doc.id] = doc.filename
-
-            scored_chunks = []
-            for chunk in db_chunks:
-                chunk_vector = chunk.embedding
-                if not chunk_vector:
-                    continue
-                
-                dot = sum(a*b for a, b in zip(query_vector, chunk_vector))
-                mag1 = math.sqrt(sum(a*a for a in query_vector))
-                mag2 = math.sqrt(sum(b*b for b in chunk_vector))
-                similarity = dot / (mag1 * mag2) if mag1 and mag2 else 0.0
-
-                scored_chunks.append({
-                    "text": chunk.text,
-                    "filename": doc_map.get(chunk.doc_id, f"Documento #{chunk.doc_id}"),
-                    "score": similarity
-                })
-
-            scored_chunks.sort(key=lambda x: x["score"], reverse=True)
-            chunks_found = scored_chunks[:top_k]
-
-        context_parts = []
-        sources = []
-        for i, chunk in enumerate(chunks_found):
-            filename = chunk["filename"]
-            text = chunk["text"]
-            context_parts.append(f"--- Trecho {i+1} de {filename} ---\n{text}\n")
-            sources.append({
-                "filename": filename,
-                "text": text[:200] + "..." if len(text) > 200 else text
-            })
-
-        context = "\n".join(context_parts)
-        return context, sources
+        return "\n\n".join(contexts), all_sources
 
 
 def generate_embeddings(texts: List[str]) -> List[List[float]]:

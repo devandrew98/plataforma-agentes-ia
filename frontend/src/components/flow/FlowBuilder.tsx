@@ -373,18 +373,25 @@ export default function FlowBuilder({
     setSelectedNodeId(copies[copies.length - 1].id);
   }, [nodes, selectedNodeId, setNodes]);
 
-  // Remove via tecla Del/Backspace o(s) bloco(s) selecionado(s).
+  // Remove via tecla Del/Backspace o(s) bloco(s) E a(s) linha(s) selecionada(s).
   const deleteViaKey = useCallback(() => {
-    const ids = new Set(
+    const nodeIds = new Set(
       (nodes as Node[])
         .filter((n) => (n as any).selected || n.id === selectedNodeId)
         .map((n) => n.id)
     );
-    if (!ids.size) return;
-    setNodes((nds) => nds.filter((n) => !ids.has(n.id)));
-    setEdges((eds) => eds.filter((e) => !ids.has(e.source) && !ids.has(e.target)));
-    setSelectedNodeId((cur) => (cur && ids.has(cur) ? null : cur));
-  }, [nodes, selectedNodeId, setNodes, setEdges]);
+    const edgeIds = new Set(
+      (edges as Edge[]).filter((e) => (e as any).selected).map((e) => e.id)
+    );
+    if (!nodeIds.size && !edgeIds.size) return;
+    if (nodeIds.size) setNodes((nds) => nds.filter((n) => !nodeIds.has(n.id)));
+    setEdges((eds) =>
+      eds.filter(
+        (e) => !edgeIds.has(e.id) && !nodeIds.has(e.source) && !nodeIds.has(e.target)
+      )
+    );
+    setSelectedNodeId((cur) => (cur && nodeIds.has(cur) ? null : cur));
+  }, [nodes, edges, selectedNodeId, setNodes, setEdges]);
 
   // Atalhos de teclado (ignora quando o foco está num campo de texto).
   useEffect(() => {
@@ -506,7 +513,8 @@ export default function FlowBuilder({
               </div>
               <p className="mb-3 text-[11px] leading-snug text-zinc-500">
                 Clique para adicionar (ou arraste). Duplo clique abre as opções.
-                <br />Atalhos: <b className="text-zinc-400">Ctrl+D</b> duplica · <b className="text-zinc-400">Del</b> remove.
+                <br />Para <b className="text-zinc-400">ligar blocos</b>: arraste da bolinha à <b className="text-zinc-400">direita</b> de um até a bolinha à <b className="text-zinc-400">esquerda</b> de outro.
+                <br />Atalhos: <b className="text-zinc-400">Ctrl+D</b> duplica · <b className="text-zinc-400">Del</b> remove (bloco ou linha selecionada).
               </p>
               <div className="max-h-[calc(100vh-16rem)] space-y-1.5 overflow-y-auto pr-1">
                 {PALETTE.map(({ type, hint }) => {

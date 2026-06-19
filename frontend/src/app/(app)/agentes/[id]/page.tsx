@@ -3,10 +3,10 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Edge, Node } from "reactflow";
-import { ArrowLeft, Settings, Database, Activity, MessagesSquare, Save, Play, Bot, PanelLeftClose, PanelLeftOpen, Check, Share2, Copy, ExternalLink, Sparkles, BookOpen, Globe } from "lucide-react";
+import { ArrowLeft, Settings, Database, Activity, MessagesSquare, Save, Play, Bot, PanelLeftClose, PanelLeftOpen, Check, Share2, Copy, ExternalLink, BookOpen, Globe } from "lucide-react";
 
 import FlowBuilder from "@/src/components/flow/FlowBuilder";
-import { getAgent, updateAgent, KnowledgeMode } from "@/src/lib/services/agentes";
+import { getAgent, updateAgent } from "@/src/lib/services/agentes";
 import { listKnowledgeBaseOptions } from "@/src/lib/services/kb";
 
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,8 @@ export default function AgentStudioPage() {
   const [flowEdges, setFlowEdges] = useState<Edge[]>([]);
   const [initialFlow, setInitialFlow] = useState<{ nodes: Node[]; edges: Edge[]; } | null>(null);
 
-  const [knowledgeMode, setKnowledgeMode] = useState<KnowledgeMode>("none");
+  const [useRag, setUseRag] = useState(false);
+  const [useWeb, setUseWeb] = useState(false);
   const [knowledgeKbId, setKnowledgeKbId] = useState("");
   const [kbOptions, setKbOptions] = useState<{ id: string; name: string }[]>([]);
 
@@ -77,9 +78,12 @@ export default function AgentStudioPage() {
         setFlowNodes(agent.flow.nodes || []);
         setFlowEdges(agent.flow.edges || []);
 
-        const km = (agent.flow.knowledge?.mode as KnowledgeMode) || "none";
-        const kkb = agent.flow.knowledge?.kbId ? String(agent.flow.knowledge.kbId) : "";
-        setKnowledgeMode(km);
+        const k = agent.flow.knowledge || {};
+        const r = !!k.rag || k.mode === "rag";
+        const w = !!k.web || k.mode === "web";
+        const kkb = k.kbId ? String(k.kbId) : "";
+        setUseRag(r);
+        setUseWeb(w);
         setKnowledgeKbId(kkb);
 
         savedSnapshotRef.current = JSON.stringify({
@@ -91,7 +95,8 @@ export default function AgentStudioPage() {
           status: agent.status,
           flowNodes: agent.flow.nodes || [],
           flowEdges: agent.flow.edges || [],
-          knowledgeMode: km,
+          useRag: r,
+          useWeb: w,
           knowledgeKbId: kkb,
         });
       } catch (error) {
@@ -118,7 +123,7 @@ export default function AgentStudioPage() {
         flow: {
           nodes: flowNodes,
           edges: flowEdges,
-          knowledge: { mode: knowledgeMode, kbId: knowledgeMode === "rag" ? knowledgeKbId || null : null },
+          knowledge: { rag: useRag, web: useWeb, kbId: useRag ? knowledgeKbId || null : null },
         },
       });
 
@@ -127,7 +132,7 @@ export default function AgentStudioPage() {
         return;
       }
       savedSnapshotRef.current = JSON.stringify({
-        name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, knowledgeMode, knowledgeKbId,
+        name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, useRag, useWeb, knowledgeKbId,
       });
       setAutoSaveState("saved");
     } catch (error) {
@@ -142,7 +147,7 @@ export default function AgentStudioPage() {
   useEffect(() => {
     if (loading || !canSave) return;
     const snapshot = JSON.stringify({
-      name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, knowledgeMode, knowledgeKbId,
+      name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, useRag, useWeb, knowledgeKbId,
     });
     if (snapshot === savedSnapshotRef.current) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
@@ -159,7 +164,7 @@ export default function AgentStudioPage() {
           flow: {
             nodes: flowNodes,
             edges: flowEdges,
-            knowledge: { mode: knowledgeMode, kbId: knowledgeMode === "rag" ? knowledgeKbId || null : null },
+            knowledge: { rag: useRag, web: useWeb, kbId: useRag ? knowledgeKbId || null : null },
           },
         });
         savedSnapshotRef.current = snapshot;
@@ -171,7 +176,7 @@ export default function AgentStudioPage() {
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [loading, canSave, name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, knowledgeMode, knowledgeKbId, agentId]);
+  }, [loading, canSave, name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, useRag, useWeb, knowledgeKbId, agentId]);
 
   useEffect(() => {
     setShareOrigin(window.location.origin);
@@ -377,34 +382,34 @@ export default function AgentStudioPage() {
                   <div className="grid gap-2 pt-6 border-t border-border/50">
                     <Label className="text-lg">Conhecimento do agente</Label>
                     <p className="-mt-1 text-sm text-zinc-500 mb-1">
-                      Onde o agente busca informação além do que o modelo já sabe.
+                      Marque o que quiser — pode usar os dois juntos. Nenhum marcado = só a IA.
                     </p>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {[
-                        { id: "none", label: "Só a IA", desc: "Conhecimento do próprio modelo", icon: Sparkles },
-                        { id: "rag", label: "Base de conhecimento", desc: "Busca semântica nos documentos", icon: BookOpen },
-                        { id: "web", label: "Buscar na internet", desc: "Pesquisa na web em tempo real", icon: Globe },
-                      ].map((opt) => {
-                        const Icon = opt.icon;
-                        const active = knowledgeMode === opt.id;
-                        return (
-                          <button
-                            type="button"
-                            key={opt.id}
-                            onClick={() => setKnowledgeMode(opt.id as KnowledgeMode)}
-                            className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
-                              active ? "border-indigo-500/60 bg-indigo-500/10" : "border-zinc-800 hover:border-zinc-600"
-                            }`}
-                          >
-                            <Icon className={`h-4 w-4 ${active ? "text-indigo-400" : "text-zinc-400"}`} />
-                            <span className="text-sm font-medium">{opt.label}</span>
-                            <span className="text-[11px] leading-tight text-muted-foreground">{opt.desc}</span>
-                          </button>
-                        );
-                      })}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setUseRag((v) => !v)}
+                        className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
+                          useRag ? "border-indigo-500/60 bg-indigo-500/10" : "border-zinc-800 hover:border-zinc-600"
+                        }`}
+                      >
+                        <BookOpen className={`h-4 w-4 ${useRag ? "text-indigo-400" : "text-zinc-400"}`} />
+                        <span className="text-sm font-medium">Base de conhecimento {useRag && "✓"}</span>
+                        <span className="text-[11px] leading-tight text-muted-foreground">Busca semântica nos documentos (RAG)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUseWeb((v) => !v)}
+                        className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
+                          useWeb ? "border-indigo-500/60 bg-indigo-500/10" : "border-zinc-800 hover:border-zinc-600"
+                        }`}
+                      >
+                        <Globe className={`h-4 w-4 ${useWeb ? "text-indigo-400" : "text-zinc-400"}`} />
+                        <span className="text-sm font-medium">Buscar na internet {useWeb && "✓"}</span>
+                        <span className="text-[11px] leading-tight text-muted-foreground">Pesquisa na web em tempo real</span>
+                      </button>
                     </div>
 
-                    {knowledgeMode === "rag" && (
+                    {useRag && (
                       <div className="mt-2 grid gap-2">
                         <Label>Qual base de conhecimento?</Label>
                         <select

@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { TrendingUp, LifeBuoy, Calendar, Megaphone, Plus, ArrowLeft, Bot, GraduationCap, Sparkles, BookOpen, Globe } from "lucide-react";
+import { TrendingUp, LifeBuoy, Calendar, Megaphone, Plus, ArrowLeft, Bot, GraduationCap, BookOpen, Globe } from "lucide-react";
 
-import { createAgent, KnowledgeMode } from "@/src/lib/services/agentes";
+import { createAgent } from "@/src/lib/services/agentes";
 import { listKnowledgeBaseOptions } from "@/src/lib/services/kb";
 import { AGENT_TEMPLATES, AgentTemplate } from "@/src/lib/templates";
 
@@ -35,7 +35,8 @@ export default function NovoAgentePage() {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const [knowledgeMode, setKnowledgeMode] = useState<KnowledgeMode>("none");
+  const [useRag, setUseRag] = useState(false);
+  const [useWeb, setUseWeb] = useState(false);
   const [knowledgeKbId, setKnowledgeKbId] = useState("");
   const [kbOptions, setKbOptions] = useState<{ id: string; name: string }[]>([]);
 
@@ -66,8 +67,9 @@ export default function NovoAgentePage() {
           nodes: [],
           edges: [],
           knowledge: {
-            mode: knowledgeMode,
-            kbId: knowledgeMode === "rag" ? knowledgeKbId || null : null,
+            rag: useRag,
+            web: useWeb,
+            kbId: useRag ? knowledgeKbId || null : null,
           },
         },
       });
@@ -205,34 +207,34 @@ export default function NovoAgentePage() {
                 <div className="grid gap-2 pt-4 border-t border-border/50">
                   <Label>Como o agente busca conhecimento?</Label>
                   <p className="-mt-1 text-xs text-muted-foreground">
-                    Onde o agente procura informação além do que o modelo já sabe.
+                    Marque o que quiser — pode usar os dois juntos. Nenhum marcado = só a IA.
                   </p>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {[
-                      { id: "none", label: "Só a IA", desc: "Conhecimento do próprio modelo", icon: Sparkles },
-                      { id: "rag", label: "Base de conhecimento", desc: "Busca semântica nos seus documentos", icon: BookOpen },
-                      { id: "web", label: "Buscar na internet", desc: "Pesquisa na web em tempo real", icon: Globe },
-                    ].map((opt) => {
-                      const Icon = opt.icon;
-                      const active = knowledgeMode === opt.id;
-                      return (
-                        <button
-                          type="button"
-                          key={opt.id}
-                          onClick={() => setKnowledgeMode(opt.id as KnowledgeMode)}
-                          className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
-                            active ? "border-indigo-500/60 bg-indigo-500/10" : "border-zinc-800 hover:border-zinc-600"
-                          }`}
-                        >
-                          <Icon className={`h-4 w-4 ${active ? "text-indigo-400" : "text-zinc-400"}`} />
-                          <span className="text-sm font-medium">{opt.label}</span>
-                          <span className="text-[11px] leading-tight text-muted-foreground">{opt.desc}</span>
-                        </button>
-                      );
-                    })}
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setUseRag((v) => !v)}
+                      className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
+                        useRag ? "border-indigo-500/60 bg-indigo-500/10" : "border-zinc-800 hover:border-zinc-600"
+                      }`}
+                    >
+                      <BookOpen className={`h-4 w-4 ${useRag ? "text-indigo-400" : "text-zinc-400"}`} />
+                      <span className="text-sm font-medium">Base de conhecimento {useRag && "✓"}</span>
+                      <span className="text-[11px] leading-tight text-muted-foreground">Busca semântica nos seus documentos (RAG)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUseWeb((v) => !v)}
+                      className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
+                        useWeb ? "border-indigo-500/60 bg-indigo-500/10" : "border-zinc-800 hover:border-zinc-600"
+                      }`}
+                    >
+                      <Globe className={`h-4 w-4 ${useWeb ? "text-indigo-400" : "text-zinc-400"}`} />
+                      <span className="text-sm font-medium">Buscar na internet {useWeb && "✓"}</span>
+                      <span className="text-[11px] leading-tight text-muted-foreground">Pesquisa na web em tempo real</span>
+                    </button>
                   </div>
 
-                  {knowledgeMode === "rag" && (
+                  {useRag && (
                     <div className="mt-2 grid gap-2">
                       <Label>Qual base de conhecimento?</Label>
                       <select
