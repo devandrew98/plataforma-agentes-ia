@@ -189,6 +189,15 @@ export function ToolNode(props: any) {
 export function RagNode(props: any) {
   return <NodeShell data={props.data} selected={props.selected} />;
 }
+export function ConditionNode(props: any) {
+  return <NodeShell data={props.data} selected={props.selected} />;
+}
+export function DelayNode(props: any) {
+  return <NodeShell data={props.data} selected={props.selected} />;
+}
+export function HumanNode(props: any) {
+  return <NodeShell data={props.data} selected={props.selected} />;
+}
 
 export const nodeTypes = {
   trigger: TriggerNode,
@@ -196,4 +205,7 @@ export const nodeTypes = {
   action: ActionNode,
   tool: ToolNode,
   rag: RagNode,
+  condition: ConditionNode,
+  delay: DelayNode,
+  human: HumanNode,
 };
