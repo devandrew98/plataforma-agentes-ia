@@ -164,19 +164,44 @@ def retrieve_context_with_sources(
 
     with SessionLocal() as db:
         actual_kb_ids = list(kb_ids) if kb_ids is not None else []
+        mode = None
         if agent_id is not None:
             agent = db.query(Agent).filter(Agent.id == agent_id).first()
-            if agent and agent.flow:
-                nodes = agent.flow.get("nodes", [])
-                for node in nodes:
-                    if node.get("type") == "rag" or node.get("data", {}).get("kind") == "rag":
-                        kb_id_val = node.get("data", {}).get("config", {}).get("kbId")
-                        if kb_id_val:
-                            try:
-                                actual_kb_ids.append(int(kb_id_val))
-                            except ValueError:
-                                pass
+            flow = (agent.flow or {}) if agent else {}
 
+            # Estratégia de conhecimento escolhida na criação/config do agente.
+            knowledge = flow.get("knowledge") or {}
+            mode = (knowledge.get("mode") or "").strip().lower() or None
+
+            kid = knowledge.get("kbId")
+            if kid:
+                try:
+                    actual_kb_ids.append(int(kid))
+                except (ValueError, TypeError):
+                    pass
+
+            # Compatibilidade: também lê os kbId dos nós "rag" do fluxo.
+            for node in flow.get("nodes", []):
+                if node.get("type") == "rag" or node.get("data", {}).get("kind") == "rag":
+                    kb_id_val = node.get("data", {}).get("config", {}).get("kbId")
+                    if kb_id_val:
+                        try:
+                            actual_kb_ids.append(int(kb_id_val))
+                        except (ValueError, TypeError):
+                            pass
+
+        # Modo "internet": pesquisa na web e devolve como contexto.
+        if mode == "web":
+            from app.web_search import web_search
+
+            return web_search(query, max_results=top_k)
+
+        # Modo "só IA": sem contexto externo.
+        if mode == "none":
+            return "", []
+
+        # Modo "base de conhecimento" (ou compatibilidade): precisa de uma base.
+        actual_kb_ids = list(dict.fromkeys(actual_kb_ids))  # remove duplicados
         if not actual_kb_ids:
             return "", []
 

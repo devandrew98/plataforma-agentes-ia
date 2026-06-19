@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { TrendingUp, LifeBuoy, Calendar, Megaphone, Plus, ArrowLeft, Bot, GraduationCap } from "lucide-react";
+import { TrendingUp, LifeBuoy, Calendar, Megaphone, Plus, ArrowLeft, Bot, GraduationCap, Sparkles, BookOpen, Globe } from "lucide-react";
 
-import { createAgent } from "@/src/lib/services/agentes";
+import { createAgent, KnowledgeMode } from "@/src/lib/services/agentes";
+import { listKnowledgeBaseOptions } from "@/src/lib/services/kb";
 import { AGENT_TEMPLATES, AgentTemplate } from "@/src/lib/templates";
 
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,14 @@ export default function NovoAgentePage() {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [knowledgeMode, setKnowledgeMode] = useState<KnowledgeMode>("none");
+  const [knowledgeKbId, setKnowledgeKbId] = useState("");
+  const [kbOptions, setKbOptions] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    listKnowledgeBaseOptions().then(setKbOptions).catch(() => setKbOptions([]));
+  }, []);
+
   // Quando o usuário seleciona um template
   const handleSelectTemplate = (template: AgentTemplate) => {
     setSelectedTemplate(template);
@@ -53,7 +62,14 @@ export default function NovoAgentePage() {
         description,
         system_prompt: systemPrompt,
         status: "draft",
-        flow: { nodes: [], edges: [] }, // Começa sem fluxo, o usuário edita depois
+        flow: {
+          nodes: [],
+          edges: [],
+          knowledge: {
+            mode: knowledgeMode,
+            kbId: knowledgeMode === "rag" ? knowledgeKbId || null : null,
+          },
+        },
       });
 
       router.push(`/agentes/${agent.id}`);
@@ -183,6 +199,59 @@ export default function NovoAgentePage() {
                   <p className="text-xs text-muted-foreground">
                     O prompt de sistema define a personalidade e as instruções primárias do agente.
                   </p>
+                </div>
+
+                {/* Estratégia de conhecimento */}
+                <div className="grid gap-2 pt-4 border-t border-border/50">
+                  <Label>Como o agente busca conhecimento?</Label>
+                  <p className="-mt-1 text-xs text-muted-foreground">
+                    Onde o agente procura informação além do que o modelo já sabe.
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {[
+                      { id: "none", label: "Só a IA", desc: "Conhecimento do próprio modelo", icon: Sparkles },
+                      { id: "rag", label: "Base de conhecimento", desc: "Busca semântica nos seus documentos", icon: BookOpen },
+                      { id: "web", label: "Buscar na internet", desc: "Pesquisa na web em tempo real", icon: Globe },
+                    ].map((opt) => {
+                      const Icon = opt.icon;
+                      const active = knowledgeMode === opt.id;
+                      return (
+                        <button
+                          type="button"
+                          key={opt.id}
+                          onClick={() => setKnowledgeMode(opt.id as KnowledgeMode)}
+                          className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
+                            active ? "border-indigo-500/60 bg-indigo-500/10" : "border-zinc-800 hover:border-zinc-600"
+                          }`}
+                        >
+                          <Icon className={`h-4 w-4 ${active ? "text-indigo-400" : "text-zinc-400"}`} />
+                          <span className="text-sm font-medium">{opt.label}</span>
+                          <span className="text-[11px] leading-tight text-muted-foreground">{opt.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {knowledgeMode === "rag" && (
+                    <div className="mt-2 grid gap-2">
+                      <Label>Qual base de conhecimento?</Label>
+                      <select
+                        value={knowledgeKbId}
+                        onChange={(e) => setKnowledgeKbId(e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-zinc-900/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <option value="">Selecione uma base...</option>
+                        {kbOptions.map((k) => (
+                          <option key={k.id} value={String(k.id)}>{k.name}</option>
+                        ))}
+                      </select>
+                      {kbOptions.length === 0 && (
+                        <p className="text-[11px] text-amber-400">
+                          Você ainda não tem bases. Crie uma em <strong>Base de Conhecimento</strong>, suba um arquivo e indexe.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end pt-4">

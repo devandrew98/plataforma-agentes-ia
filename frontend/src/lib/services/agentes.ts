@@ -5,6 +5,9 @@ import { getSession } from "./auth";
 
 export type AgenteStatus = "draft" | "active" | "paused";
 
+export type KnowledgeMode = "none" | "rag" | "web";
+export type AgentKnowledge = { mode: KnowledgeMode; kbId?: string | null };
+
 export interface Agente {
   id: number;
   name: string;
@@ -13,7 +16,7 @@ export interface Agente {
   model?: string;
   system_prompt?: string;
   status: AgenteStatus;
-  flow: { nodes: Node[]; edges: Edge[] };
+  flow: { nodes: Node[]; edges: Edge[]; knowledge?: AgentKnowledge };
   created_at?: string;
   updated_at?: string;
 }
@@ -42,6 +45,8 @@ function normalizeFlow(flow: any) {
   return {
     nodes: Array.isArray(flow.nodes) ? flow.nodes : [],
     edges: Array.isArray(flow.edges) ? flow.edges : [],
+    knowledge:
+      flow.knowledge && typeof flow.knowledge === "object" ? flow.knowledge : undefined,
   };
 }
 
@@ -99,7 +104,7 @@ export async function createAgent(input: {
   model?: string;
   system_prompt?: string;
   status?: AgenteStatus;
-  flow?: { nodes: Node[]; edges: Edge[] };
+  flow?: { nodes: Node[]; edges: Edge[]; knowledge?: AgentKnowledge };
 }): Promise<Agente> {
   const payload = {
     name: input.name.trim(),
@@ -111,6 +116,7 @@ export async function createAgent(input: {
     flow: {
       nodes: input.flow?.nodes || [],
       edges: input.flow?.edges || [],
+      knowledge: input.flow?.knowledge,
     },
   };
 
@@ -144,6 +150,7 @@ export async function updateAgent(
       ? {
           nodes: patch.flow.nodes || [],
           edges: patch.flow.edges || [],
+          knowledge: patch.flow.knowledge,
         }
       : undefined,
   };

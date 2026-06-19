@@ -3,10 +3,11 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Edge, Node } from "reactflow";
-import { ArrowLeft, Settings, Database, Activity, MessagesSquare, Save, Play, Bot, PanelLeftClose, PanelLeftOpen, Check, Share2, Copy, ExternalLink } from "lucide-react";
+import { ArrowLeft, Settings, Database, Activity, MessagesSquare, Save, Play, Bot, PanelLeftClose, PanelLeftOpen, Check, Share2, Copy, ExternalLink, Sparkles, BookOpen, Globe } from "lucide-react";
 
 import FlowBuilder from "@/src/components/flow/FlowBuilder";
-import { getAgent, updateAgent } from "@/src/lib/services/agentes";
+import { getAgent, updateAgent, KnowledgeMode } from "@/src/lib/services/agentes";
+import { listKnowledgeBaseOptions } from "@/src/lib/services/kb";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -39,7 +40,11 @@ export default function AgentStudioPage() {
   const [flowNodes, setFlowNodes] = useState<Node[]>([]);
   const [flowEdges, setFlowEdges] = useState<Edge[]>([]);
   const [initialFlow, setInitialFlow] = useState<{ nodes: Node[]; edges: Edge[]; } | null>(null);
-  
+
+  const [knowledgeMode, setKnowledgeMode] = useState<KnowledgeMode>("none");
+  const [knowledgeKbId, setKnowledgeKbId] = useState("");
+  const [kbOptions, setKbOptions] = useState<{ id: string; name: string }[]>([]);
+
   const [saving, setSaving] = useState(false);
   const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const savedSnapshotRef = useRef<string>("");
@@ -72,6 +77,11 @@ export default function AgentStudioPage() {
         setFlowNodes(agent.flow.nodes || []);
         setFlowEdges(agent.flow.edges || []);
 
+        const km = (agent.flow.knowledge?.mode as KnowledgeMode) || "none";
+        const kkb = agent.flow.knowledge?.kbId ? String(agent.flow.knowledge.kbId) : "";
+        setKnowledgeMode(km);
+        setKnowledgeKbId(kkb);
+
         savedSnapshotRef.current = JSON.stringify({
           name: agent.name,
           description: agent.description || "",
@@ -81,6 +91,8 @@ export default function AgentStudioPage() {
           status: agent.status,
           flowNodes: agent.flow.nodes || [],
           flowEdges: agent.flow.edges || [],
+          knowledgeMode: km,
+          knowledgeKbId: kkb,
         });
       } catch (error) {
         console.error(error);
@@ -103,7 +115,11 @@ export default function AgentStudioPage() {
         model,
         system_prompt: systemPrompt,
         status,
-        flow: { nodes: flowNodes, edges: flowEdges },
+        flow: {
+          nodes: flowNodes,
+          edges: flowEdges,
+          knowledge: { mode: knowledgeMode, kbId: knowledgeMode === "rag" ? knowledgeKbId || null : null },
+        },
       });
 
       if (!updated) {
@@ -111,7 +127,7 @@ export default function AgentStudioPage() {
         return;
       }
       savedSnapshotRef.current = JSON.stringify({
-        name, description, provider, model, systemPrompt, status, flowNodes, flowEdges,
+        name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, knowledgeMode, knowledgeKbId,
       });
       setAutoSaveState("saved");
     } catch (error) {
@@ -126,7 +142,7 @@ export default function AgentStudioPage() {
   useEffect(() => {
     if (loading || !canSave) return;
     const snapshot = JSON.stringify({
-      name, description, provider, model, systemPrompt, status, flowNodes, flowEdges,
+      name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, knowledgeMode, knowledgeKbId,
     });
     if (snapshot === savedSnapshotRef.current) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
@@ -140,7 +156,11 @@ export default function AgentStudioPage() {
           model,
           system_prompt: systemPrompt,
           status,
-          flow: { nodes: flowNodes, edges: flowEdges },
+          flow: {
+            nodes: flowNodes,
+            edges: flowEdges,
+            knowledge: { mode: knowledgeMode, kbId: knowledgeMode === "rag" ? knowledgeKbId || null : null },
+          },
         });
         savedSnapshotRef.current = snapshot;
         setAutoSaveState("saved");
@@ -151,10 +171,14 @@ export default function AgentStudioPage() {
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [loading, canSave, name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, agentId]);
+  }, [loading, canSave, name, description, provider, model, systemPrompt, status, flowNodes, flowEdges, knowledgeMode, knowledgeKbId, agentId]);
 
   useEffect(() => {
     setShareOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    listKnowledgeBaseOptions().then(setKbOptions).catch(() => setKbOptions([]));
   }, []);
 
   function copyText(text: string, key: string) {
@@ -347,6 +371,63 @@ export default function AgentStudioPage() {
                       onChange={(e) => setSystemPrompt(e.target.value)}
                       className="font-mono text-sm leading-relaxed bg-zinc-950 border-zinc-800 p-4 min-h-[300px]"
                     />
+                  </div>
+
+                  {/* Estratégia de conhecimento */}
+                  <div className="grid gap-2 pt-6 border-t border-border/50">
+                    <Label className="text-lg">Conhecimento do agente</Label>
+                    <p className="-mt-1 text-sm text-zinc-500 mb-1">
+                      Onde o agente busca informação além do que o modelo já sabe.
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {[
+                        { id: "none", label: "Só a IA", desc: "Conhecimento do próprio modelo", icon: Sparkles },
+                        { id: "rag", label: "Base de conhecimento", desc: "Busca semântica nos documentos", icon: BookOpen },
+                        { id: "web", label: "Buscar na internet", desc: "Pesquisa na web em tempo real", icon: Globe },
+                      ].map((opt) => {
+                        const Icon = opt.icon;
+                        const active = knowledgeMode === opt.id;
+                        return (
+                          <button
+                            type="button"
+                            key={opt.id}
+                            onClick={() => setKnowledgeMode(opt.id as KnowledgeMode)}
+                            className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
+                              active ? "border-indigo-500/60 bg-indigo-500/10" : "border-zinc-800 hover:border-zinc-600"
+                            }`}
+                          >
+                            <Icon className={`h-4 w-4 ${active ? "text-indigo-400" : "text-zinc-400"}`} />
+                            <span className="text-sm font-medium">{opt.label}</span>
+                            <span className="text-[11px] leading-tight text-muted-foreground">{opt.desc}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {knowledgeMode === "rag" && (
+                      <div className="mt-2 grid gap-2">
+                        <Label>Qual base de conhecimento?</Label>
+                        <select
+                          value={knowledgeKbId}
+                          onChange={(e) => setKnowledgeKbId(e.target.value)}
+                          className="flex h-10 w-full rounded-md border border-input bg-zinc-900/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <option value="">Selecione uma base...</option>
+                          {kbOptions.map((k) => (
+                            <option key={k.id} value={String(k.id)}>{k.name}</option>
+                          ))}
+                        </select>
+                        {kbOptions.length === 0 ? (
+                          <p className="text-[11px] text-amber-400">
+                            Você ainda não tem bases. Crie uma em <strong>Base de Dados / Knowledge Base</strong>, suba um arquivo e indexe.
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-zinc-500">
+                            A base precisa estar <strong>indexada</strong> para o agente conseguir buscar nela.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
