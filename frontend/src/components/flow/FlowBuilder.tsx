@@ -26,6 +26,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Copy,
+  HelpCircle,
 } from "lucide-react";
 
 import { nodeTypes, KIND_STYLES, NodeKind } from "./nodeTypes";
@@ -254,6 +255,24 @@ export default function FlowBuilder({
   // painéis flutuantes colapsáveis
   const [paletteOpen, setPaletteOpen] = useState(true);
   const [validationOpen, setValidationOpen] = useState(true);
+
+  // janelinha de ajuda ("Como usar o fluxo") — abre sozinha na 1ª vez.
+  const [helpOpen, setHelpOpen] = useState(false);
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("argent:flow-help-seen")) setHelpOpen(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const dismissHelp = useCallback(() => {
+    try {
+      localStorage.setItem("argent:flow-help-seen", "1");
+    } catch {
+      /* ignore */
+    }
+    setHelpOpen(false);
+  }, []);
 
   useEffect(() => {
     listKnowledgeBaseOptions()
@@ -555,6 +574,13 @@ export default function FlowBuilder({
         <Panel position="top-right">
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setHelpOpen(true)}
+                title="Como usar o fluxo"
+                className="flex h-9 items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/90 px-2.5 text-xs text-zinc-300 shadow-lg backdrop-blur hover:bg-zinc-900"
+              >
+                <HelpCircle className="h-4 w-4 text-indigo-400" /> Como usar
+              </button>
               <TestRunDialog nodes={nodes as any} edges={edges} />
               <button
                 onClick={() => setValidationOpen((v) => !v)}
@@ -834,6 +860,34 @@ export default function FlowBuilder({
             <Button variant="destructive" className="flex-1 gap-2" onClick={removeSelected}>
               <Trash2 className="h-4 w-4" /> Remover
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Janelinha de ajuda: como usar o fluxo */}
+      {helpOpen && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
+            <div className="mb-4 flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-indigo-400" />
+              <h3 className="text-lg font-semibold text-zinc-100">Como usar o fluxo lógico</h3>
+            </div>
+            <ul className="space-y-2.5 text-sm text-zinc-300">
+              <li><b className="text-zinc-100">➕ Adicionar bloco:</b> clique num bloco da paleta à esquerda (ou arraste pro canvas).</li>
+              <li><b className="text-zinc-100">🔗 Ligar blocos:</b> arraste da <b>bolinha à direita</b> de um bloco até a <b>bolinha à esquerda</b> de outro — aparece uma seta.</li>
+              <li><b className="text-zinc-100">⚙️ Abrir opções:</b> dê <b>duplo clique</b> num bloco.</li>
+              <li><b className="text-zinc-100">🗑️ Apagar:</b> selecione um bloco ou uma linha e aperte <b>Del</b>. <b>Ctrl+D</b> duplica.</li>
+              <li><b className="text-zinc-100">🔍 Dica:</b> dê zoom (rolinha do mouse) para pegar as bolinhas com mais facilidade.</li>
+            </ul>
+            <p className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-2.5 text-[11px] text-zinc-500">
+              O fluxo é <b>visual</b>: documenta a lógica do atendimento. Quem responde é a configuração do agente (prompt + base de conhecimento).
+            </p>
+            <button
+              onClick={dismissHelp}
+              className="mt-5 w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+            >
+              Entendi!
+            </button>
           </div>
         </div>
       )}
