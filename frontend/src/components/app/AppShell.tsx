@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import TourOverlay from "./TourOverlay";
+import EmailVerifyBanner from "./EmailVerifyBanner";
 import { getMe } from "@/src/lib/services/profile";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -55,7 +56,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <aside className="hidden md:block">
           {ready && <Sidebar collapsed={collapsed} onToggle={toggle} isAdmin={isAdmin} />}
         </aside>
-        <main className="min-w-0">{children}</main>
+        <main className="min-w-0">
+          <EmailVerifyBanner />
+          {children}
+        </main>
       </div>
       {tourActive && <TourOverlay onClose={() => setTourActive(false)} />}
     </div>

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Key, User, CreditCard, Building2, Phone, Mail, ShieldCheck, Loader2, CheckCircle2, Trash2, ExternalLink } from "lucide-react";
+import { Key, User, CreditCard, Building2, Phone, Mail, ShieldCheck, Loader2, CheckCircle2, MailWarning, Trash2, ExternalLink } from "lucide-react";
+import { resendVerification } from "@/src/lib/services/auth";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -134,6 +135,33 @@ export default function ConfiguracoesPage() {
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
                 <div className="flex items-center gap-1.5 text-xs text-zinc-500"><Mail className="h-3.5 w-3.5" /> E-mail</div>
                 <div className="mt-1 truncate text-sm text-zinc-200">{profile?.email}</div>
+                {profile && (
+                  (profile.email_verified || profile.is_admin) ? (
+                    <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400">
+                      <CheckCircle2 className="h-3 w-3" /> E-mail confirmado
+                    </div>
+                  ) : (
+                    <div className="mt-1.5 space-y-1">
+                      <div className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400">
+                        <MailWarning className="h-3 w-3" /> E-mail não confirmado
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const msg = await resendVerification();
+                            alert(msg);
+                          } catch (e: any) {
+                            alert(e?.message || "Não foi possível reenviar.");
+                          }
+                        }}
+                        className="block text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                      >
+                        Reenviar e-mail de confirmação
+                      </button>
+                    </div>
+                  )
+                )}
               </div>
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
                 <div className="flex items-center gap-1.5 text-xs text-zinc-500"><ShieldCheck className="h-3.5 w-3.5" /> Login via</div>

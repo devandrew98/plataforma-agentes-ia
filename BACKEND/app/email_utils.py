@@ -17,6 +17,26 @@ import ssl
 from email.message import EmailMessage
 
 
+def smtp_configured() -> bool:
+    """True se houver um servidor SMTP configurado (envio real de e-mail)."""
+    return bool(os.getenv("SMTP_HOST"))
+
+
+def send_action_email(to: str, subject: str, body: str) -> bool:
+    """Envia um e-mail de ação (verificação/senha). Se o SMTP não estiver
+    configurado, registra o conteúdo no log do servidor — útil para testar
+    localmente (o link aparece no terminal) sem quebrar o fluxo."""
+    sent = send_email(to, subject, body)
+    if not sent:
+        print(
+            "\n[email:fallback] SMTP não configurado — e-mail NÃO enviado.\n"
+            f"  Para:     {to}\n"
+            f"  Assunto:  {subject}\n"
+            f"  Conteúdo:\n{body}\n"
+        )
+    return sent
+
+
 def send_email(to: str, subject: str, body: str) -> bool:
     host = os.getenv("SMTP_HOST")
     if not host or not to:

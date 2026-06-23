@@ -79,9 +79,27 @@ class UserOut(BaseModel):
     provider: str
     has_openai_key: bool = False
     is_admin: bool = False
+    email_verified: bool = False
     created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: Optional[str] = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
 
 
 class ProfileUpdate(BaseModel):

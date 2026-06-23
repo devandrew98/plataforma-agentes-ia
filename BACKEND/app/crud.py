@@ -26,7 +26,14 @@ def create_user(
         full_name=full_name,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Corrida: outra requisição cadastrou o mesmo e-mail em paralelo.
+        # A constraint UNIQUE protege o banco; aqui devolvemos erro limpo (400)
+        # em vez de deixar virar 500.
+        db.rollback()
+        raise ValueError("E-mail já cadastrado.")
     db.refresh(user)
     return user
 
@@ -50,6 +57,10 @@ def get_or_create_oauth_user(
         if provider_user_id and not user.provider_user_id:
             user.provider_user_id = provider_user_id
             changed = True
+        # O provedor social já validou o e-mail → considera verificado.
+        if not getattr(user, "email_verified", False):
+            user.email_verified = True
+            changed = True
         if changed:
             db.commit()
             db.refresh(user)
@@ -61,9 +72,18 @@ def get_or_create_oauth_user(
         hashed_password=None,  # usuário social não tem senha local
         provider=provider,
         provider_user_id=provider_user_id,
+        email_verified=True,  # e-mail já validado pelo provedor social
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Corrida: dois logins sociais simultâneos do mesmo e-mail novo.
+        db.rollback()
+        existing = db.query(models.User).filter(models.User.email == email).first()
+        if existing:
+            return existing
+        raise
     db.refresh(user)
     return user
 

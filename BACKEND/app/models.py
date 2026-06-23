@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Boolean
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -21,6 +21,11 @@ class User(Base):
     hashed_password = Column(String(255), nullable=True)  # nullable for OAuth users
     provider = Column(String(50), default="local")  # e.g., google, facebook, apple, local
     provider_user_id = Column(String(255), nullable=True)  # ID from provider
+
+    # Verificação de e-mail (segurança): conta criada por e-mail/senha começa
+    # NÃO verificada e fica bloqueada de criar agentes até confirmar o e-mail.
+    # Contas sociais (Google/GitHub) já entram verificadas.
+    email_verified = Column(Boolean, default=False, nullable=False)
 
     # Chave de API própria do usuário (para consumir os próprios créditos)
     openai_api_key = Column(String(255), nullable=True)

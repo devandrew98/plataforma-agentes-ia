@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import schemas, crud
-from app.auth import get_current_active_user
+from app.auth import get_current_active_user, is_email_verified
 
 router = APIRouter(prefix="/agents", tags=["Agents"])
 
@@ -12,6 +12,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 @router.post("/", response_model=schemas.AgentOut)
 def create_agent(payload: schemas.AgentCreate, db: Session = Depends(get_db), current_user: schemas.UserOut = Depends(get_current_active_user)):
+    # Segurança: só cria agentes quem confirmou o e-mail (verificação de conta).
+    if not is_email_verified(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Confirme seu e-mail para criar agentes. Verifique sua caixa de entrada (e o spam).",
+        )
     existing = crud.get_agent_by_name(db, payload.name.strip(), owner_id=current_user.id)
     if existing:
         raise HTTPException(

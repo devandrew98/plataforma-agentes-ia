@@ -9,6 +9,8 @@ export type SessionUser = {
   workspaceId: string;
   name: string;
   email: string;
+  emailVerified: boolean;
+  isAdmin: boolean;
 };
 
 export type Session = {
@@ -24,6 +26,8 @@ type BackendUser = {
   email: string;
   name?: string | null;
   provider?: string;
+  email_verified?: boolean;
+  is_admin?: boolean;
 };
 
 type AuthResponse = {
@@ -40,6 +44,8 @@ function toSession(data: AuthResponse): Session {
       workspaceId: `w_${u.id}`,
       name: u.name || u.email.split("@")[0],
       email: u.email,
+      emailVerified: !!u.email_verified,
+      isAdmin: !!u.is_admin,
     },
     token: data.access_token,
     createdAt: nowIso(),
@@ -202,4 +208,101 @@ export async function completeOAuthLogin(token: string): Promise<Session> {
   }
   const u = (await res.json()) as BackendUser;
   return toSession({ access_token: token, token_type: "bearer", user: u });
+}
+
+/* ──────────────────────────────────────────────
+   Verificação de e-mail + redefinição de senha
+────────────────────────────────────────────── */
+
+async function readDetail(res: Response, fallback: string): Promise<string> {
+  try {
+    const j = await res.json();
+    if (typeof j?.detail === "string") return j.detail;
+    if (typeof j?.message === "string") return j.message;
+  } catch {
+    /* ignore */
+  }
+  return fallback;
+}
+
+/** Confirma o e-mail a partir do token do link. Atualiza a sessão local. */
+export async function verifyEmail(token: string): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/verify-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) {
+    throw new Error(await readDetail(res, "Não foi possível confirmar o e-mail."));
+  }
+  // Se houver sessão ativa, marca como verificada na hora.
+  const s = getSession();
+  if (s) {
+    s.user.emailVerified = true;
+    writeJson(SESSION_KEY, s);
+  }
+}
+
+/** Reenvia o e-mail de confirmação para o usuário logado. */
+export async function resendVerification(): Promise<string> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/auth/resend-verification`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    throw new Error(await readDetail(res, "Não foi possível reenviar o e-mail."));
+  }
+  return readDetail(res, "E-mail de confirmação reenviado.");
+}
+
+/** Solicita o e-mail de redefinição de senha. Resposta sempre genérica. */
+export async function forgotPassword(email: string): Promise<string> {
+  const res = await fetch(`${API_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  });
+  if (!res.ok) {
+    throw new Error(await readDetail(res, "Não foi possível enviar o e-mail."));
+  }
+  return readDetail(
+    res,
+    "Se houver uma conta com esse e-mail, enviamos um link de redefinição."
+  );
+}
+
+/** Conclui a redefinição de senha e já autentica o usuário. */
+export async function resetPassword(token: string, password: string): Promise<Session> {
+  const res = await fetch(`${API_URL}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+  if (!res.ok) {
+    throw new Error(await readDetail(res, "Não foi possível redefinir a senha."));
+  }
+  const data = (await res.json()) as AuthResponse;
+  return toSession(data);
+}
+
+/** Revalida a sessão contra o backend (atualiza emailVerified/nome). */
+export async function refreshSession(): Promise<Session | null> {
+  const s = getSession();
+  if (!s) return null;
+  try {
+    const res = await fetch(`${API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${s.token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return s;
+    const u = (await res.json()) as BackendUser;
+    s.user.emailVerified = !!u.email_verified;
+    s.user.isAdmin = !!u.is_admin;
+    if (u.name) s.user.name = u.name;
+    writeJson(SESSION_KEY, s);
+    return s;
+  } catch {
+    return s;
+  }
 }

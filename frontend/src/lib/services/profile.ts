@@ -13,6 +13,7 @@ export type Profile = {
   provider: string;
   has_openai_key: boolean;
   is_admin?: boolean;
+  email_verified?: boolean;
   created_at?: string;
 };
 

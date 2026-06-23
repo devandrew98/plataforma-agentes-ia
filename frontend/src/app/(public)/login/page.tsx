@@ -323,7 +323,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
-                    onClick={() => setError("Recuperação de senha em breve.")}
+                    onClick={() => router.push("/esqueci-senha")}
                   >
                     Esqueceu a senha?
                   </button>

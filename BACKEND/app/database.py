@@ -41,14 +41,45 @@ def get_db():
 
 def run_lightweight_migrations() -> None:
     """
-    Migrações leves e idempotentes para SQLite.
+    Migrações leves e idempotentes.
 
     Como o projeto usa ``Base.metadata.create_all`` (que só cria tabelas novas,
     nunca altera colunas de tabelas já existentes), precisamos garantir que
-    colunas adicionadas depois do banco já existir sejam criadas. SQLite suporta
-    ``ALTER TABLE ... ADD COLUMN``, que é não-destrutivo.
+    colunas adicionadas depois do banco já existir sejam criadas. Tanto SQLite
+    quanto PostgreSQL suportam ``ALTER TABLE ... ADD COLUMN`` (não-destrutivo).
     """
-    if not DATABASE_URL.startswith("sqlite"):
+    from sqlalchemy import inspect, text
+
+    is_sqlite = DATABASE_URL.startswith("sqlite")
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+
+    def _has_column(table: str, column: str) -> bool:
+        return column in {c["name"] for c in inspector.get_columns(table)}
+
+    # ------------------------------------------------------------------
+    # email_verified — precisa existir nos DOIS bancos (SQLite em dev e
+    # PostgreSQL/Neon em produção), pois é uma coluna NOVA. Contas que já
+    # existiam antes desta feature são "anistiadas" (marcadas como
+    # verificadas) para não bloquearem a criação de agentes de quem já usava.
+    # ------------------------------------------------------------------
+    if "users" in existing_tables and not _has_column("users", "email_verified"):
+        default_sql = "0" if is_sqlite else "FALSE"
+        true_sql = "1" if is_sqlite else "TRUE"
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    f"ALTER TABLE users ADD COLUMN email_verified BOOLEAN "
+                    f"DEFAULT {default_sql}"
+                )
+            )
+            conn.execute(text(f"UPDATE users SET email_verified = {true_sql}"))
+
+    # ------------------------------------------------------------------
+    # Daqui para baixo, apenas SQLite (em produção o Postgres já nasceu com
+    # essas colunas quando o banco foi criado pela primeira vez).
+    # ------------------------------------------------------------------
+    if not is_sqlite:
         return
 
     # (tabela, coluna, definição SQL)
@@ -58,11 +89,6 @@ def run_lightweight_migrations() -> None:
         ("users", "phone", "VARCHAR(50)"),
         ("users", "openai_api_key", "VARCHAR(255)"),
     ]
-
-    from sqlalchemy import inspect, text
-
-    inspector = inspect(engine)
-    existing_tables = set(inspector.get_table_names())
 
     with engine.begin() as conn:
         for table, column, ddl in required_columns:

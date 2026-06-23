@@ -76,9 +76,9 @@ export default function NovoAgentePage() {
 
       router.push(`/agentes/${agent.id}`);
       router.refresh();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Erro ao criar agente.");
+      alert(error?.message || "Erro ao criar agente.");
     } finally {
       setSaving(false);
     }

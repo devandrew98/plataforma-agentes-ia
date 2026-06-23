@@ -134,8 +134,15 @@ export async function createAgent(input: {
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(err || "Erro ao criar agente.");
+    // Extrai a mensagem amigável do backend (ex.: bloqueio por e-mail não confirmado).
+    let detail = "Erro ao criar agente.";
+    try {
+      const j = await res.json();
+      if (typeof j?.detail === "string") detail = j.detail;
+    } catch {
+      /* resposta sem JSON */
+    }
+    throw new Error(detail);
   }
 
   const data = await res.json();

@@ -2,6 +2,12 @@
 """Testes E2E da API — roda contra http://127.0.0.1:8000"""
 import time
 import requests
+from dotenv import load_dotenv
+
+# Carrega o mesmo .env do servidor para gerar um token de verificação válido
+# (mesmo JWT_SECRET). Precisa rodar a partir da pasta BACKEND.
+load_dotenv()
+from app import auth  # noqa: E402
 
 BASE = "http://127.0.0.1:8000"
 ts = int(time.time())
@@ -21,6 +27,12 @@ def check(name, cond, extra=""):
 
 def h(tok):
     return {"Authorization": f"Bearer {tok}"}
+
+
+def verify_email_token(email):
+    """Confirma o e-mail (simula o clique no link) com o mesmo segredo do servidor."""
+    token = auth.create_email_action_token(email, "verify_email", 60)
+    return requests.post(f"{BASE}/auth/verify-email", json={"token": token})
 
 
 print("== AUTH ==")
@@ -47,6 +59,13 @@ check("/auth/me com token -> 200", r.status_code == 200 and r.json()["email"] ==
 
 r = requests.get(f"{BASE}/auth/me", headers=h("token-invalido"))
 check("/auth/me token invalido -> 401", r.status_code == 401)
+
+print("== VERIFICACAO DE E-MAIL ==")
+r = requests.post(f"{BASE}/agents/", headers=h(tokA), json={"name": "Bloqueado QA"})
+check("criar agente SEM verificar e-mail -> 403", r.status_code == 403, r.text[:150])
+r = verify_email_token(ea)
+check("confirmar e-mail userA -> 200 (verified)",
+      r.status_code == 200 and r.json().get("email_verified") is True, r.text[:150])
 
 print("== AGENTES (CRUD) ==")
 r = requests.post(f"{BASE}/agents/", headers=h(tokA),
